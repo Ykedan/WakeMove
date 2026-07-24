@@ -149,23 +149,33 @@ class RingingService : Service() {
     }
 
     private fun claimSession(startId: Int, alarmId: String, sessionId: String) {
-        val claimed = SessionOwnership(startId, alarmId, sessionId)
-        ownership = claimed
+        ownership = SessionOwnership(startId, alarmId, sessionId)
         terminalObservation?.cancel()
         startForegroundImmediately(alarmId, sessionId)
         terminalObservation = serviceScope.launch {
             controller.state.collect { state ->
+                val owned = ownership ?: return@collect
                 val session = state.session ?: return@collect
-                if (session.id == sessionId &&
+                if (session.id == owned.sessionId &&
+                    session.alarmId == owned.alarmId &&
                     session.status != com.wakemove.android.domain.SessionStatus.RINGING
                 ) {
-                    stopOwnedSession(claimed)
+                    stopOwnedSession(owned)
                 }
             }
         }
     }
 
     private fun rejectCommand(startId: Int) {
+        val owned = ownership
+        if (owned != null &&
+            controller.state.value.isRinging(owned.alarmId, owned.sessionId)
+        ) {
+            val promoted = owned.copy(startId = maxOf(owned.startId, startId))
+            ownership = promoted
+            startForegroundImmediately(promoted.alarmId, promoted.sessionId)
+            return
+        }
         if (!stopSelfResult(startId)) return
         ownership = null
         terminalObservation?.cancel()
@@ -199,7 +209,9 @@ class RingingService : Service() {
             .setAutoCancel(false)
             .setContentIntent(fullScreenIntent(alarmId, sessionId))
             .setFullScreenIntent(fullScreenIntent(alarmId, sessionId), true)
-        if (alarmId != null && sessionId != null) {
+        if (alarmId != null && sessionId != null &&
+            controller.state.value.canSnooze(alarmId, sessionId)
+        ) {
             builder.addAction(
                 Notification.Action.Builder(
                     null,
@@ -323,6 +335,9 @@ private fun RingingUiState.isRinging(alarmId: String, sessionId: String? = null)
     alarm?.id == alarmId &&
         session?.status == com.wakemove.android.domain.SessionStatus.RINGING &&
         (sessionId == null || session.id == sessionId)
+
+private fun RingingUiState.canSnooze(alarmId: String, sessionId: String): Boolean =
+    isRinging(alarmId, sessionId) && remainingSnoozes > 0
 
 class AndroidAlarmVibrator(
     context: Context,

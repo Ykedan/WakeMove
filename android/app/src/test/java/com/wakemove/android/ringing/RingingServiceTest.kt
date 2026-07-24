@@ -253,40 +253,118 @@ class RingingServiceTest {
     }
 
     @Test
-    fun `competing alarm start stops the current foreground session`() {
-        val service = startedService(startId = 30)
-        val competing = TEST_ALARM.copy(id = "competing")
-        application.repository.alarms[competing.id] = competing
+    fun `competing alarm start preserves owned ringing until eventual completion`() =
+        runBlocking {
+            val service = startedService(startId = 30)
+            val competing = TEST_ALARM.copy(id = "competing")
+            application.repository.alarms[competing.id] = competing
 
-        service.onStartCommand(
-            Intent(application, RingingService::class.java)
-                .setAction(AlarmReceiver.ACTION_START_RINGING)
-                .putExtra(AlarmReceiver.EXTRA_ALARM_ID, competing.id),
-            0,
-            31,
-        )
-        shadowOf(Looper.getMainLooper()).idle()
+            service.onStartCommand(
+                Intent(application, RingingService::class.java)
+                    .setAction(AlarmReceiver.ACTION_START_RINGING)
+                    .putExtra(AlarmReceiver.EXTRA_ALARM_ID, competing.id),
+                0,
+                31,
+            )
+            shadowOf(Looper.getMainLooper()).idle()
 
-        assertTerminalServiceStopped(service)
-        assertEquals(AlarmSoundState.STOPPED, application.audioPlayer.soundState)
-    }
+            assertEquals(TEST_ALARM.id, application.repository.session?.alarmId)
+            assertOwnedRingingContinues(service)
+
+            assertTrue(application.ringingSessionController.complete())
+            shadowOf(Looper.getMainLooper()).idle()
+
+            assertEquals(31, shadowOf(service).stopSelfResultId)
+            assertTerminalServiceStopped(service)
+            assertEquals(AlarmSoundState.STOPPED, application.audioPlayer.soundState)
+        }
 
     @Test
-    fun `failed notification snooze stops foreground and removes notification`() {
-        application.repository.alarms[TEST_ALARM.id] = TEST_ALARM.copy(snoozeLimit = 0)
-        val service = startedService(startId = 40)
+    fun `fourth snooze stays ringing and zero remaining hides snooze action`() = runBlocking {
+        val ringing = ringAfterThreeSnoozes()
+        val service = ringing.service
         val sessionId = checkNotNull(application.repository.session).id
+
+        assertEquals(0, application.ringingSessionController.state.value.remainingSnoozes)
+        assertTrue(shadowOf(service).lastForegroundNotification.actions.isNullOrEmpty())
 
         service.onStartCommand(
             commandIntent(RingingService.ACTION_SNOOZE, TEST_ALARM.id, sessionId),
             0,
-            41,
+            ringing.nextStartId,
         )
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(SessionStatus.RINGING, application.repository.session?.status)
+        assertEquals(3, application.repository.session?.snoozeCount)
+        assertOwnedRingingContinues(service)
+        assertTrue(shadowOf(service).lastForegroundNotification.actions.isNullOrEmpty())
+    }
+
+    @Test
+    fun `stale session action preserves the addressed owned ringing session`() = runBlocking {
+        val service = startedService(startId = 50)
+
+        service.onStartCommand(
+            commandIntent(RingingService.ACTION_COMPLETE, TEST_ALARM.id, "stale-session"),
+            0,
+            51,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertOwnedRingingContinues(service)
+        assertEquals("session-id", application.repository.session?.id)
+
+        assertTrue(application.ringingSessionController.bypass())
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(51, shadowOf(service).stopSelfResultId)
         assertTerminalServiceStopped(service)
-        assertEquals(AlarmSoundState.STOPPED, application.audioPlayer.soundState)
+    }
+
+    @Test
+    fun `malformed and unknown newer commands preserve ownership and latest start stops`() =
+        runBlocking {
+            val service = startedService(startId = 60)
+
+            service.onStartCommand(Intent(application, RingingService::class.java), 0, 61)
+            shadowOf(Looper.getMainLooper()).idle()
+            assertOwnedRingingContinues(service)
+
+            service.onStartCommand(
+                Intent(application, RingingService::class.java).setAction("unknown"),
+                0,
+                62,
+            )
+            shadowOf(Looper.getMainLooper()).idle()
+            assertOwnedRingingContinues(service)
+
+            assertTrue(application.ringingSessionController.complete())
+            shadowOf(Looper.getMainLooper()).idle()
+
+            assertEquals(62, shadowOf(service).stopSelfResultId)
+            assertTerminalServiceStopped(service)
+        }
+
+    private fun ringAfterThreeSnoozes(): StartedRingingService {
+        var nextStartId = 40
+        var service = startedService(startId = nextStartId++)
+        repeat(3) {
+            val sessionId = checkNotNull(application.repository.session).id
+            service.onStartCommand(
+                commandIntent(RingingService.ACTION_SNOOZE, TEST_ALARM.id, sessionId),
+                0,
+                nextStartId++,
+            )
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(SessionStatus.SNOOZED, application.repository.session?.status)
+            assertTerminalServiceStopped(service)
+            service.onDestroy()
+
+            ShadowPowerManager.clearWakeLocks()
+            service = startedService(startId = nextStartId++)
+        }
+        return StartedRingingService(service, nextStartId)
     }
 
     private fun startedService(startId: Int = 1): RingingService {
@@ -303,6 +381,15 @@ class RingingServiceTest {
         assertTrue(shadowOf(service).notificationShouldRemoved)
     }
 
+    private fun assertOwnedRingingContinues(service: RingingService) {
+        assertEquals(SessionStatus.RINGING, application.repository.session?.status)
+        assertEquals(AlarmSoundState.PLAYING, application.audioPlayer.soundState)
+        assertTrue(application.vibrator.isVibrating)
+        assertTrue(ShadowPowerManager.getLatestWakeLock().isHeld)
+        assertFalse(shadowOf(service).isForegroundStopped)
+        assertFalse(shadowOf(service).isStoppedBySelf)
+    }
+
     private fun startIntent() = Intent(application, RingingService::class.java)
         .setAction(AlarmReceiver.ACTION_START_RINGING)
         .putExtra(AlarmReceiver.EXTRA_ALARM_ID, TEST_ALARM.id)
@@ -312,6 +399,11 @@ class RingingServiceTest {
             .setAction(action)
             .putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
             .putExtra(RingingService.EXTRA_SESSION_ID, sessionId)
+
+    private data class StartedRingingService(
+        val service: RingingService,
+        val nextStartId: Int,
+    )
 }
 
 class RingingServiceTestApplication : Application(), RingingDependencies {
@@ -452,12 +544,17 @@ class ServiceVibrator(
 ) : AlarmVibrator {
     var stopCount = 0
         private set
+    var isVibrating = false
+        private set
+
     override fun start() {
         order += "vibrate"
+        isVibrating = true
     }
 
     override fun stop() {
         stopCount += 1
+        isVibrating = false
     }
 }
 
