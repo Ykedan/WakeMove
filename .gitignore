@@ -1,2 +1,8 @@
 .worktrees/
 .superpowers/
+
+# Android build outputs and machine-specific SDK configuration
+android/.gradle/
+android/**/build/
+android/local.properties
+*.hprof
