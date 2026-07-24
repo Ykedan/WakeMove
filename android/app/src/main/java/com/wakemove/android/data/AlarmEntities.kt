@@ -27,17 +27,21 @@ data class AlarmEntity(
     val challengeType: String,
     @ColumnInfo(name = "target_count")
     val targetCount: Int,
-    @ColumnInfo(name = "created_at")
-    val createdAt: Long,
-    @ColumnInfo(name = "updated_at")
-    val updatedAt: Long,
+    @ColumnInfo(name = "created_at_epoch_second")
+    val createdAtEpochSecond: Long,
+    @ColumnInfo(name = "created_at_nano")
+    val createdAtNano: Int,
+    @ColumnInfo(name = "updated_at_epoch_second")
+    val updatedAtEpochSecond: Long,
+    @ColumnInfo(name = "updated_at_nano")
+    val updatedAtNano: Int,
 )
 
 @Entity(
     tableName = "ringing_sessions",
     indices = [
         Index(value = ["alarm_id"]),
-        Index(value = ["status", "started_at"]),
+        Index(value = ["status", "started_at_epoch_second", "started_at_nano"]),
     ],
 )
 data class RingingSessionEntity(
@@ -45,10 +49,14 @@ data class RingingSessionEntity(
     val id: String,
     @ColumnInfo(name = "alarm_id")
     val alarmId: String,
-    @ColumnInfo(name = "scheduled_at")
-    val scheduledAt: Long,
-    @ColumnInfo(name = "started_at")
-    val startedAt: Long,
+    @ColumnInfo(name = "scheduled_at_epoch_second")
+    val scheduledAtEpochSecond: Long,
+    @ColumnInfo(name = "scheduled_at_nano")
+    val scheduledAtNano: Int,
+    @ColumnInfo(name = "started_at_epoch_second")
+    val startedAtEpochSecond: Long,
+    @ColumnInfo(name = "started_at_nano")
+    val startedAtNano: Int,
     @ColumnInfo(name = "snooze_count")
     val snoozeCount: Int,
     @ColumnInfo(name = "challenge_type")
@@ -62,7 +70,7 @@ data class RingingSessionEntity(
     tableName = "alarm_events",
     indices = [
         Index(value = ["alarm_id"]),
-        Index(value = ["scheduled_at"]),
+        Index(value = ["scheduled_at_epoch_second", "scheduled_at_nano"]),
     ],
 )
 data class AlarmEventEntity(
@@ -70,12 +78,18 @@ data class AlarmEventEntity(
     val id: String,
     @ColumnInfo(name = "alarm_id")
     val alarmId: String,
-    @ColumnInfo(name = "scheduled_at")
-    val scheduledAt: Long,
-    @ColumnInfo(name = "started_at")
-    val startedAt: Long?,
-    @ColumnInfo(name = "finished_at")
-    val finishedAt: Long?,
+    @ColumnInfo(name = "scheduled_at_epoch_second")
+    val scheduledAtEpochSecond: Long,
+    @ColumnInfo(name = "scheduled_at_nano")
+    val scheduledAtNano: Int,
+    @ColumnInfo(name = "started_at_epoch_second")
+    val startedAtEpochSecond: Long?,
+    @ColumnInfo(name = "started_at_nano")
+    val startedAtNano: Int?,
+    @ColumnInfo(name = "finished_at_epoch_second")
+    val finishedAtEpochSecond: Long?,
+    @ColumnInfo(name = "finished_at_nano")
+    val finishedAtNano: Int?,
     @ColumnInfo(name = "challenge_type")
     val challengeType: String,
     @ColumnInfo(name = "snooze_count")

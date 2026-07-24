@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "e1152ddb712735967bfff9756d50f31e",
+    "identityHash": "ffe310707d491b3deda118fb7a987be7",
     "entities": [
       {
         "tableName": "alarms",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `time_nano_of_day` INTEGER NOT NULL, `label` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `repeat_days` INTEGER NOT NULL, `sound_id` TEXT NOT NULL, `vibration_enabled` INTEGER NOT NULL, `snooze_minutes` INTEGER NOT NULL, `snooze_limit` INTEGER NOT NULL, `challenge_type` TEXT NOT NULL, `target_count` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `time_nano_of_day` INTEGER NOT NULL, `label` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `repeat_days` INTEGER NOT NULL, `sound_id` TEXT NOT NULL, `vibration_enabled` INTEGER NOT NULL, `snooze_minutes` INTEGER NOT NULL, `snooze_limit` INTEGER NOT NULL, `challenge_type` TEXT NOT NULL, `target_count` INTEGER NOT NULL, `created_at_epoch_second` INTEGER NOT NULL, `created_at_nano` INTEGER NOT NULL, `updated_at_epoch_second` INTEGER NOT NULL, `updated_at_nano` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -75,14 +75,26 @@
             "notNull": true
           },
           {
-            "fieldPath": "createdAt",
-            "columnName": "created_at",
+            "fieldPath": "createdAtEpochSecond",
+            "columnName": "created_at_epoch_second",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
-            "fieldPath": "updatedAt",
-            "columnName": "updated_at",
+            "fieldPath": "createdAtNano",
+            "columnName": "created_at_nano",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochSecond",
+            "columnName": "updated_at_epoch_second",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtNano",
+            "columnName": "updated_at_nano",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -96,7 +108,7 @@
       },
       {
         "tableName": "ringing_sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `alarm_id` TEXT NOT NULL, `scheduled_at` INTEGER NOT NULL, `started_at` INTEGER NOT NULL, `snooze_count` INTEGER NOT NULL, `challenge_type` TEXT NOT NULL, `target_count` INTEGER NOT NULL, `status` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `alarm_id` TEXT NOT NULL, `scheduled_at_epoch_second` INTEGER NOT NULL, `scheduled_at_nano` INTEGER NOT NULL, `started_at_epoch_second` INTEGER NOT NULL, `started_at_nano` INTEGER NOT NULL, `snooze_count` INTEGER NOT NULL, `challenge_type` TEXT NOT NULL, `target_count` INTEGER NOT NULL, `status` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -111,14 +123,26 @@
             "notNull": true
           },
           {
-            "fieldPath": "scheduledAt",
-            "columnName": "scheduled_at",
+            "fieldPath": "scheduledAtEpochSecond",
+            "columnName": "scheduled_at_epoch_second",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
-            "fieldPath": "startedAt",
-            "columnName": "started_at",
+            "fieldPath": "scheduledAtNano",
+            "columnName": "scheduled_at_nano",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtEpochSecond",
+            "columnName": "started_at_epoch_second",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtNano",
+            "columnName": "started_at_nano",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -164,20 +188,21 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_ringing_sessions_alarm_id` ON `${TABLE_NAME}` (`alarm_id`)"
           },
           {
-            "name": "index_ringing_sessions_status_started_at",
+            "name": "index_ringing_sessions_status_started_at_epoch_second_started_at_nano",
             "unique": false,
             "columnNames": [
               "status",
-              "started_at"
+              "started_at_epoch_second",
+              "started_at_nano"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_ringing_sessions_status_started_at` ON `${TABLE_NAME}` (`status`, `started_at`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ringing_sessions_status_started_at_epoch_second_started_at_nano` ON `${TABLE_NAME}` (`status`, `started_at_epoch_second`, `started_at_nano`)"
           }
         ]
       },
       {
         "tableName": "alarm_events",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `alarm_id` TEXT NOT NULL, `scheduled_at` INTEGER NOT NULL, `started_at` INTEGER, `finished_at` INTEGER, `challenge_type` TEXT NOT NULL, `snooze_count` INTEGER NOT NULL, `result` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `alarm_id` TEXT NOT NULL, `scheduled_at_epoch_second` INTEGER NOT NULL, `scheduled_at_nano` INTEGER NOT NULL, `started_at_epoch_second` INTEGER, `started_at_nano` INTEGER, `finished_at_epoch_second` INTEGER, `finished_at_nano` INTEGER, `challenge_type` TEXT NOT NULL, `snooze_count` INTEGER NOT NULL, `result` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -192,19 +217,35 @@
             "notNull": true
           },
           {
-            "fieldPath": "scheduledAt",
-            "columnName": "scheduled_at",
+            "fieldPath": "scheduledAtEpochSecond",
+            "columnName": "scheduled_at_epoch_second",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
-            "fieldPath": "startedAt",
-            "columnName": "started_at",
+            "fieldPath": "scheduledAtNano",
+            "columnName": "scheduled_at_nano",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtEpochSecond",
+            "columnName": "started_at_epoch_second",
             "affinity": "INTEGER"
           },
           {
-            "fieldPath": "finishedAt",
-            "columnName": "finished_at",
+            "fieldPath": "startedAtNano",
+            "columnName": "started_at_nano",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "finishedAtEpochSecond",
+            "columnName": "finished_at_epoch_second",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "finishedAtNano",
+            "columnName": "finished_at_nano",
             "affinity": "INTEGER"
           },
           {
@@ -243,13 +284,14 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_alarm_events_alarm_id` ON `${TABLE_NAME}` (`alarm_id`)"
           },
           {
-            "name": "index_alarm_events_scheduled_at",
+            "name": "index_alarm_events_scheduled_at_epoch_second_scheduled_at_nano",
             "unique": false,
             "columnNames": [
-              "scheduled_at"
+              "scheduled_at_epoch_second",
+              "scheduled_at_nano"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_alarm_events_scheduled_at` ON `${TABLE_NAME}` (`scheduled_at`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_alarm_events_scheduled_at_epoch_second_scheduled_at_nano` ON `${TABLE_NAME}` (`scheduled_at_epoch_second`, `scheduled_at_nano`)"
           }
         ]
       },
@@ -280,7 +322,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e1152ddb712735967bfff9756d50f31e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ffe310707d491b3deda118fb7a987be7')"
     ]
   }
 }

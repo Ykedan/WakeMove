@@ -15,6 +15,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -111,6 +112,90 @@ class RoomAlarmRepositoryTest {
     }
 
     @Test
+    fun `domain instants round trip without losing nanoseconds`() = runBlocking {
+        val alarm = alarm(
+            id = "nanosecond-alarm",
+            createdAt = Instant.ofEpochSecond(1_800_000_000, 123_456_789),
+            updatedAt = Instant.ofEpochSecond(1_800_000_001, 987_654_321),
+        )
+        val session = session(
+            id = "nanosecond-session",
+            alarmId = alarm.id,
+            scheduledAt = Instant.ofEpochSecond(1_800_000_002, 234_567_891),
+            startedAt = Instant.ofEpochSecond(1_800_000_003, 345_678_912),
+        )
+        val event = event(
+            id = "nanosecond-event",
+            alarmId = alarm.id,
+            scheduledAt = Instant.ofEpochSecond(1_800_000_004, 456_789_123),
+            startedAt = Instant.ofEpochSecond(1_800_000_005, 567_891_234),
+            finishedAt = Instant.ofEpochSecond(1_800_000_006, 678_912_345),
+        )
+
+        repository.upsertAlarm(alarm)
+        repository.saveSession(session)
+        repository.appendEvent(event)
+
+        assertEquals(alarm, repository.getAlarm(alarm.id))
+        assertEquals(session, repository.activeSession())
+        assertEquals(listOf(event), repository.recentEvents())
+    }
+
+    @Test
+    fun `same second timestamps are ordered by nanoseconds`() = runBlocking {
+        val olderInstant = Instant.ofEpochSecond(1_800_000_000, 100)
+        val newerInstant = Instant.ofEpochSecond(1_800_000_000, 900)
+        val olderAlarm = alarm(
+            id = "z-older-alarm",
+            createdAt = olderInstant,
+            updatedAt = olderInstant,
+        )
+        val newerAlarm = alarm(
+            id = "a-newer-alarm",
+            createdAt = newerInstant,
+            updatedAt = newerInstant,
+        )
+        val olderSession = session(
+            id = "z-older-session",
+            startedAt = olderInstant,
+        )
+        val newerSession = session(
+            id = "a-newer-session",
+            startedAt = newerInstant,
+        )
+        val olderEvent = event(
+            id = "z-older-event",
+            scheduledAt = olderInstant,
+        )
+        val newerEvent = event(
+            id = "a-newer-event",
+            scheduledAt = newerInstant,
+        )
+
+        repository.upsertAlarm(newerAlarm)
+        repository.upsertAlarm(olderAlarm)
+        repository.saveSession(olderSession)
+        repository.saveSession(newerSession)
+        repository.appendEvent(olderEvent)
+        repository.appendEvent(newerEvent)
+
+        assertEquals(listOf(olderAlarm, newerAlarm), repository.observeAlarms().first())
+        assertEquals(newerSession, repository.activeSession())
+        assertEquals(listOf(newerEvent, olderEvent), repository.recentEvents())
+    }
+
+    @Test
+    fun `negative event limit is rejected before querying Room`() {
+        database.close()
+
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking {
+                repository.recentEvents(limit = -1)
+            }
+        }
+    }
+
+    @Test
     fun `clear history removes sessions and events but keeps alarms`() = runBlocking {
         val alarm = alarm()
         repository.upsertAlarm(alarm)
@@ -129,6 +214,8 @@ class RoomAlarmRepositoryTest {
         time: LocalTime = LocalTime.of(7, 30),
         repeatDays: Set<DayOfWeek> = setOf(DayOfWeek.MONDAY),
         challengeType: ChallengeType = ChallengeType.SQUAT,
+        createdAt: Instant = Instant.parse("2026-01-01T00:00:00Z"),
+        updatedAt: Instant = Instant.parse("2026-01-02T00:00:00Z"),
     ) = Alarm(
         id = id,
         time = time,
@@ -141,18 +228,21 @@ class RoomAlarmRepositoryTest {
         snoozeLimit = 2,
         challengeType = challengeType,
         targetCount = 12,
-        createdAt = Instant.parse("2026-01-01T00:00:00Z"),
-        updatedAt = Instant.parse("2026-01-02T00:00:00Z"),
+        createdAt = createdAt,
+        updatedAt = updatedAt,
     )
 
     private fun session(
+        id: String = "session-1",
         alarmId: String = "alarm-1",
         status: SessionStatus = SessionStatus.RINGING,
+        scheduledAt: Instant = Instant.parse("2026-01-03T07:30:00Z"),
+        startedAt: Instant = Instant.parse("2026-01-03T07:30:03Z"),
     ) = RingingSession(
-        id = "session-1",
+        id = id,
         alarmId = alarmId,
-        scheduledAt = Instant.parse("2026-01-03T07:30:00Z"),
-        startedAt = Instant.parse("2026-01-03T07:30:03Z"),
+        scheduledAt = scheduledAt,
+        startedAt = startedAt,
         snoozeCount = 1,
         challengeType = ChallengeType.HANDS_UP,
         targetCount = 10,
@@ -163,12 +253,14 @@ class RoomAlarmRepositoryTest {
         id: String = "event-1",
         alarmId: String = "alarm-1",
         scheduledAt: Instant = Instant.parse("2026-01-03T07:30:00Z"),
+        startedAt: Instant? = scheduledAt.plusSeconds(3),
+        finishedAt: Instant? = scheduledAt.plusSeconds(90),
     ) = AlarmEvent(
         id = id,
         alarmId = alarmId,
         scheduledAt = scheduledAt,
-        startedAt = scheduledAt.plusSeconds(3),
-        finishedAt = scheduledAt.plusSeconds(90),
+        startedAt = startedAt,
+        finishedAt = finishedAt,
         challengeType = ChallengeType.HANDS_UP,
         snoozeCount = 1,
         result = AlarmEventResult.COMPLETED,

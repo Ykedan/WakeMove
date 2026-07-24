@@ -61,8 +61,10 @@ private fun Alarm.toEntity() = AlarmEntity(
     snoozeLimit = snoozeLimit,
     challengeType = challengeType.name,
     targetCount = targetCount,
-    createdAt = createdAt.toEpochMilli(),
-    updatedAt = updatedAt.toEpochMilli(),
+    createdAtEpochSecond = createdAt.epochSecond,
+    createdAtNano = createdAt.nano,
+    updatedAtEpochSecond = updatedAt.epochSecond,
+    updatedAtNano = updatedAt.nano,
 )
 
 private fun AlarmEntity.toDomain() = Alarm(
@@ -77,15 +79,17 @@ private fun AlarmEntity.toDomain() = Alarm(
     snoozeLimit = snoozeLimit,
     challengeType = enumValueOf<ChallengeType>(challengeType),
     targetCount = targetCount,
-    createdAt = Instant.ofEpochMilli(createdAt),
-    updatedAt = Instant.ofEpochMilli(updatedAt),
+    createdAt = Instant.ofEpochSecond(createdAtEpochSecond, createdAtNano.toLong()),
+    updatedAt = Instant.ofEpochSecond(updatedAtEpochSecond, updatedAtNano.toLong()),
 )
 
 private fun RingingSession.toEntity() = RingingSessionEntity(
     id = id,
     alarmId = alarmId,
-    scheduledAt = scheduledAt.toEpochMilli(),
-    startedAt = startedAt.toEpochMilli(),
+    scheduledAtEpochSecond = scheduledAt.epochSecond,
+    scheduledAtNano = scheduledAt.nano,
+    startedAtEpochSecond = startedAt.epochSecond,
+    startedAtNano = startedAt.nano,
     snoozeCount = snoozeCount,
     challengeType = challengeType.name,
     targetCount = targetCount,
@@ -95,8 +99,8 @@ private fun RingingSession.toEntity() = RingingSessionEntity(
 private fun RingingSessionEntity.toDomain() = RingingSession(
     id = id,
     alarmId = alarmId,
-    scheduledAt = Instant.ofEpochMilli(scheduledAt),
-    startedAt = Instant.ofEpochMilli(startedAt),
+    scheduledAt = Instant.ofEpochSecond(scheduledAtEpochSecond, scheduledAtNano.toLong()),
+    startedAt = Instant.ofEpochSecond(startedAtEpochSecond, startedAtNano.toLong()),
     snoozeCount = snoozeCount,
     challengeType = enumValueOf<ChallengeType>(challengeType),
     targetCount = targetCount,
@@ -106,9 +110,12 @@ private fun RingingSessionEntity.toDomain() = RingingSession(
 private fun AlarmEvent.toEntity() = AlarmEventEntity(
     id = id,
     alarmId = alarmId,
-    scheduledAt = scheduledAt.toEpochMilli(),
-    startedAt = startedAt?.toEpochMilli(),
-    finishedAt = finishedAt?.toEpochMilli(),
+    scheduledAtEpochSecond = scheduledAt.epochSecond,
+    scheduledAtNano = scheduledAt.nano,
+    startedAtEpochSecond = startedAt?.epochSecond,
+    startedAtNano = startedAt?.nano,
+    finishedAtEpochSecond = finishedAt?.epochSecond,
+    finishedAtNano = finishedAt?.nano,
     challengeType = challengeType.name,
     snoozeCount = snoozeCount,
     result = result.name,
@@ -117,9 +124,9 @@ private fun AlarmEvent.toEntity() = AlarmEventEntity(
 private fun AlarmEventEntity.toDomain() = AlarmEvent(
     id = id,
     alarmId = alarmId,
-    scheduledAt = Instant.ofEpochMilli(scheduledAt),
-    startedAt = startedAt?.let(Instant::ofEpochMilli),
-    finishedAt = finishedAt?.let(Instant::ofEpochMilli),
+    scheduledAt = Instant.ofEpochSecond(scheduledAtEpochSecond, scheduledAtNano.toLong()),
+    startedAt = instantOrNull(startedAtEpochSecond, startedAtNano),
+    finishedAt = instantOrNull(finishedAtEpochSecond, finishedAtNano),
     challengeType = enumValueOf<ChallengeType>(challengeType),
     snoozeCount = snoozeCount,
     result = enumValueOf<AlarmEventResult>(result),
@@ -132,3 +139,10 @@ private fun Int.toDaysOfWeek(): Set<DayOfWeek> =
     DayOfWeek.entries.filterTo(linkedSetOf()) { day ->
         this and (1 shl (day.value - 1)) != 0
     }
+
+private fun instantOrNull(epochSecond: Long?, nano: Int?): Instant? {
+    check((epochSecond == null) == (nano == null)) {
+        "Stored Instant must have both epoch-second and nanosecond values"
+    }
+    return epochSecond?.let { Instant.ofEpochSecond(it, checkNotNull(nano).toLong()) }
+}

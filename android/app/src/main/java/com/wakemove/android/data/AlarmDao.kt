@@ -12,7 +12,11 @@ abstract class AlarmDao {
     @Query(
         """
         SELECT * FROM alarms
-        ORDER BY time_nano_of_day ASC, created_at ASC, id ASC
+        ORDER BY
+            time_nano_of_day ASC,
+            created_at_epoch_second ASC,
+            created_at_nano ASC,
+            id ASC
         """,
     )
     abstract fun observeAlarms(): Flow<List<AlarmEntity>>
@@ -33,7 +37,7 @@ abstract class AlarmDao {
         """
         SELECT * FROM ringing_sessions
         WHERE status IN ('RINGING', 'SNOOZED')
-        ORDER BY started_at DESC, id DESC
+        ORDER BY started_at_epoch_second DESC, started_at_nano DESC, id DESC
         LIMIT 1
         """,
     )
@@ -45,7 +49,7 @@ abstract class AlarmDao {
     @Query(
         """
         SELECT * FROM alarm_events
-        ORDER BY scheduled_at DESC, id DESC
+        ORDER BY scheduled_at_epoch_second DESC, scheduled_at_nano DESC, id DESC
         LIMIT :limit
         """,
     )
