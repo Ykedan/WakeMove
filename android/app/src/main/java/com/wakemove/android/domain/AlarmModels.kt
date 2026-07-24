@@ -19,6 +19,12 @@ enum class SessionStatus {
     MISSED,
 }
 
+enum class AlarmEventResult {
+    COMPLETED,
+    BYPASSED,
+    MISSED,
+}
+
 data class Alarm(
     val id: String,
     val time: LocalTime,
@@ -54,5 +60,5 @@ data class AlarmEvent(
     val finishedAt: Instant?,
     val challengeType: ChallengeType,
     val snoozeCount: Int,
-    val result: SessionStatus,
+    val result: AlarmEventResult,
 )

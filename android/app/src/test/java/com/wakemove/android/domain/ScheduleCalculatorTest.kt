@@ -39,6 +39,28 @@ class ScheduleCalculatorTest {
     }
 
     @Test
+    fun weekly_alarm_after_todays_time_rolls_to_the_same_weekday_next_week() {
+        val alarm = alarmAt(7, 30, repeatDays = setOf(DayOfWeek.FRIDAY))
+        val now = ZonedDateTime.parse("2026-07-24T10:00:00+08:00[Asia/Shanghai]")
+
+        assertEquals(
+            ZonedDateTime.parse("2026-07-31T07:30:00+08:00[Asia/Shanghai]"),
+            ScheduleCalculator.nextOccurrence(alarm, now),
+        )
+    }
+
+    @Test
+    fun weekly_alarm_at_the_current_time_rolls_to_the_next_week() {
+        val alarm = alarmAt(7, 30, repeatDays = setOf(DayOfWeek.FRIDAY))
+        val now = ZonedDateTime.parse("2026-07-24T07:30:00+08:00[Asia/Shanghai]")
+
+        assertEquals(
+            ZonedDateTime.parse("2026-07-31T07:30:00+08:00[Asia/Shanghai]"),
+            ScheduleCalculator.nextOccurrence(alarm, now),
+        )
+    }
+
+    @Test
     fun weekly_alarm_uses_zone_resolution_for_daylight_saving_gap() {
         val alarm = alarmAt(2, 30, repeatDays = setOf(DayOfWeek.SUNDAY))
         val now = ZonedDateTime.parse("2026-03-07T10:00:00-05:00[America/New_York]")
@@ -47,6 +69,22 @@ class ScheduleCalculatorTest {
             ZonedDateTime.parse("2026-03-08T03:30:00-04:00[America/New_York]"),
             ScheduleCalculator.nextOccurrence(alarm, now),
         )
+    }
+
+    @Test
+    fun alarm_event_records_a_terminal_event_result() {
+        val event = AlarmEvent(
+            id = "event-id",
+            alarmId = "alarm-id",
+            scheduledAt = Instant.parse("2026-01-01T07:30:00Z"),
+            startedAt = Instant.parse("2026-01-01T07:30:01Z"),
+            finishedAt = Instant.parse("2026-01-01T07:31:00Z"),
+            challengeType = ChallengeType.SQUAT,
+            snoozeCount = 0,
+            result = AlarmEventResult.COMPLETED,
+        )
+
+        assertEquals(AlarmEventResult.COMPLETED, event.result)
     }
 
     private fun alarmAt(
