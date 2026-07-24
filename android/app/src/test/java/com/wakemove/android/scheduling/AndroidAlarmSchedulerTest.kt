@@ -13,7 +13,6 @@ import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
-import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -62,7 +61,7 @@ class AndroidAlarmSchedulerTest {
         assertEquals(AlarmManager.RTC_WAKEUP, scheduled.type)
         assertTrue(operation.isBroadcast)
         assertTrue(operation.isImmutable)
-        assertEquals(UUID.fromString(alarm.id).hashCode(), operation.requestCode)
+        assertEquals(alarm.id.hashCode(), operation.requestCode)
         assertEquals(alarm.id, operation.savedIntent.getStringExtra(AlarmReceiver.EXTRA_ALARM_ID))
         assertEquals(
             AlarmReceiver::class.java.name,
@@ -79,6 +78,39 @@ class AndroidAlarmSchedulerTest {
         scheduler.cancel(alarm.id)
 
         assertTrue(shadowOf(alarmManager).scheduledAlarms.isEmpty())
+    }
+
+    @Test
+    fun `colliding request codes retain distinct alarms and cancellation identities`() {
+        val first = alarm(id = "FB")
+        val second = alarm(id = "Ea")
+        assertEquals(first.id.hashCode(), second.id.hashCode())
+        val scheduler = scheduler(listOf(first, second))
+
+        scheduler.schedule(first, now.plusSeconds(600))
+        scheduler.schedule(second, now.plusSeconds(1_200))
+
+        val scheduled = shadowOf(alarmManager).scheduledAlarms
+        assertEquals(2, scheduled.size)
+        assertEquals(
+            setOf(first.id, second.id),
+            scheduled.map {
+                shadowOf(it.operation).savedIntent.getStringExtra(AlarmReceiver.EXTRA_ALARM_ID)
+            }.toSet(),
+        )
+        assertEquals(
+            2,
+            scheduled.map { shadowOf(it.operation).savedIntent.data }.distinct().size,
+        )
+
+        scheduler.cancel(first.id)
+
+        val remaining = shadowOf(alarmManager).scheduledAlarms.single()
+        assertEquals(
+            second.id,
+            shadowOf(remaining.operation).savedIntent
+                .getStringExtra(AlarmReceiver.EXTRA_ALARM_ID),
+        )
     }
 
     @Test
@@ -161,7 +193,7 @@ class AndroidAlarmSchedulerTest {
         alarmManager = alarmManager,
         repository = FakeAlarmRepository(alarms),
         clock = Clock.fixed(now, zone),
-        zoneId = zone,
+        zoneProvider = { zone },
     )
 
     private fun alarm(
