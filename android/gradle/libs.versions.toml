@@ -7,6 +7,8 @@ espresso = "3.7.0"
 junit = "4.13.2"
 composeBom = "2026.06.00"
 room = "2.8.4"
+ksp = "2.3.10"
+robolectric = "4.16.1"
 cameraX = "1.5.3"
 mediaPipeTasksVision = "0.10.35"
 
@@ -25,6 +27,7 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 camerax-core = { module = "androidx.camera:camera-core", version.ref = "cameraX" }
 camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraX" }
 camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "cameraX" }
@@ -37,3 +40,4 @@ android-application = { id = "com.android.application", version = "9.2.0" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version = "2.3.21" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version = "2.3.21" }
 kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version = "2.3.21" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
