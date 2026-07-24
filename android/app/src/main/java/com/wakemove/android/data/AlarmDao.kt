@@ -33,6 +33,9 @@ abstract class AlarmDao {
     @Upsert
     abstract suspend fun saveSession(session: RingingSessionEntity)
 
+    @Query("SELECT * FROM ringing_sessions WHERE id = :id")
+    protected abstract suspend fun getSession(id: String): RingingSessionEntity?
+
     @Query(
         """
         SELECT * FROM ringing_sessions
@@ -45,6 +48,19 @@ abstract class AlarmDao {
 
     @Insert
     abstract suspend fun appendEvent(event: AlarmEventEntity)
+
+    @Transaction
+    open suspend fun transitionSession(
+        session: RingingSessionEntity,
+        expectedStatuses: Set<String>,
+        event: AlarmEventEntity?,
+    ): Boolean {
+        val current = getSession(session.id) ?: return false
+        if (current.status !in expectedStatuses) return false
+        saveSession(session)
+        if (event != null) appendEvent(event)
+        return true
+    }
 
     @Query(
         """

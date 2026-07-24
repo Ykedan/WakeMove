@@ -202,6 +202,12 @@ private class SingleAlarmRepository(
 
     override suspend fun activeSession(): RingingSession? = error("not used")
 
+    override suspend fun transitionSession(
+        session: RingingSession,
+        expectedStatuses: Set<com.wakemove.android.domain.SessionStatus>,
+        event: AlarmEvent?,
+    ): Boolean = error("not used")
+
     override suspend fun appendEvent(event: AlarmEvent) = error("not used")
 
     override suspend fun recentEvents(limit: Int): List<AlarmEvent> = error("not used")

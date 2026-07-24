@@ -15,6 +15,12 @@ interface AlarmRepository {
 
     suspend fun activeSession(): RingingSession?
 
+    suspend fun transitionSession(
+        session: RingingSession,
+        expectedStatuses: Set<SessionStatus>,
+        event: AlarmEvent? = null,
+    ): Boolean
+
     suspend fun appendEvent(event: AlarmEvent)
 
     suspend fun recentEvents(limit: Int = DEFAULT_EVENT_LIMIT): List<AlarmEvent>

@@ -80,6 +80,39 @@ class RoomAlarmRepositoryTest {
     }
 
     @Test
+    fun `terminal transition and event append happen once`() = runBlocking {
+        val ringing = session(status = SessionStatus.RINGING)
+        val terminal = ringing.copy(status = SessionStatus.COMPLETED)
+        val completed = event(
+            id = ringing.id,
+            alarmId = ringing.alarmId,
+            scheduledAt = ringing.scheduledAt,
+            startedAt = ringing.startedAt,
+        )
+        repository.saveSession(ringing)
+
+        assertEquals(
+            true,
+            repository.transitionSession(
+                session = terminal,
+                expectedStatuses = setOf(SessionStatus.RINGING),
+                event = completed,
+            ),
+        )
+        assertEquals(
+            false,
+            repository.transitionSession(
+                session = terminal,
+                expectedStatuses = setOf(SessionStatus.RINGING),
+                event = completed,
+            ),
+        )
+
+        assertNull(repository.activeSession())
+        assertEquals(listOf(completed), repository.recentEvents())
+    }
+
+    @Test
     fun `deleting an alarm retains its ringing session and event history`() = runBlocking {
         val alarm = alarm(id = "alarm-with-history")
         val session = session(alarmId = alarm.id, status = SessionStatus.SNOOZED)

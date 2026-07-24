@@ -35,6 +35,19 @@ class RoomAlarmRepository(
 
     override suspend fun activeSession(): RingingSession? = dao.activeSession()?.toDomain()
 
+    override suspend fun transitionSession(
+        session: RingingSession,
+        expectedStatuses: Set<SessionStatus>,
+        event: AlarmEvent?,
+    ): Boolean {
+        require(expectedStatuses.isNotEmpty()) { "expectedStatuses must not be empty" }
+        return dao.transitionSession(
+            session = session.toEntity(),
+            expectedStatuses = expectedStatuses.mapTo(mutableSetOf(), SessionStatus::name),
+            event = event?.toEntity(),
+        )
+    }
+
     override suspend fun appendEvent(event: AlarmEvent) {
         dao.appendEvent(event.toEntity())
     }
