@@ -235,6 +235,7 @@ private class FakeAlarmRepository(
         session: RingingSession,
         expectedStatuses: Set<com.wakemove.android.domain.SessionStatus>,
         event: AlarmEvent?,
+        alarmUpdate: Alarm?,
     ): Boolean = error("not used")
 
     override suspend fun appendEvent(event: AlarmEvent) = error("not used")

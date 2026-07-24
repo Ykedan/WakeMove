@@ -5,6 +5,8 @@ import com.wakemove.android.domain.AlarmEvent
 import com.wakemove.android.domain.AlarmEventResult
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
+import com.wakemove.android.domain.MAX_SNOOZE_COUNT
+import com.wakemove.android.domain.PendingAlarmSchedule
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.SessionStatus
 import java.time.DayOfWeek
@@ -39,14 +41,42 @@ class RoomAlarmRepository(
         session: RingingSession,
         expectedStatuses: Set<SessionStatus>,
         event: AlarmEvent?,
+        alarmUpdate: Alarm?,
     ): Boolean {
         require(expectedStatuses.isNotEmpty()) { "expectedStatuses must not be empty" }
+        require(alarmUpdate == null || alarmUpdate.id == session.alarmId) {
+            "alarmUpdate must belong to the transitioned session"
+        }
         return dao.transitionSession(
             session = session.toEntity(),
             expectedStatuses = expectedStatuses.mapTo(mutableSetOf(), SessionStatus::name),
             event = event?.toEntity(),
+            alarmUpdate = alarmUpdate?.toEntity(),
         )
     }
+
+    override suspend fun pendingSchedules(): List<PendingAlarmSchedule> =
+        dao.pendingSessions().map { session ->
+            PendingAlarmSchedule(
+                sessionId = session.id,
+                alarmId = session.alarmId,
+                scheduledAt = checkNotNull(
+                    instantOrNull(
+                        session.pendingScheduleAtEpochSecond,
+                        session.pendingScheduleAtNano,
+                    ),
+                ),
+            )
+        }
+
+    override suspend fun acknowledgePendingSchedule(
+        sessionId: String,
+        scheduledAt: Instant,
+    ): Boolean = dao.acknowledgePendingSchedule(
+        sessionId = sessionId,
+        scheduledAtEpochSecond = scheduledAt.epochSecond,
+        scheduledAtNano = scheduledAt.nano,
+    ) == 1
 
     override suspend fun appendEvent(event: AlarmEvent) {
         dao.appendEvent(event.toEntity())
@@ -71,7 +101,7 @@ private fun Alarm.toEntity() = AlarmEntity(
     soundId = soundId,
     vibrationEnabled = vibrationEnabled,
     snoozeMinutes = snoozeMinutes,
-    snoozeLimit = snoozeLimit,
+    snoozeLimit = snoozeLimit.coerceIn(0, MAX_SNOOZE_COUNT),
     challengeType = challengeType.name,
     targetCount = targetCount,
     createdAtEpochSecond = createdAt.epochSecond,
@@ -107,6 +137,8 @@ private fun RingingSession.toEntity() = RingingSessionEntity(
     challengeType = challengeType.name,
     targetCount = targetCount,
     status = status.name,
+    pendingScheduleAtEpochSecond = pendingScheduleAt?.epochSecond,
+    pendingScheduleAtNano = pendingScheduleAt?.nano,
 )
 
 private fun RingingSessionEntity.toDomain() = RingingSession(
@@ -118,6 +150,10 @@ private fun RingingSessionEntity.toDomain() = RingingSession(
     challengeType = enumValueOf<ChallengeType>(challengeType),
     targetCount = targetCount,
     status = enumValueOf<SessionStatus>(status),
+    pendingScheduleAt = instantOrNull(
+        pendingScheduleAtEpochSecond,
+        pendingScheduleAtNano,
+    ),
 )
 
 private fun AlarmEvent.toEntity() = AlarmEventEntity(

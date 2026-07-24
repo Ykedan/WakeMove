@@ -19,7 +19,15 @@ interface AlarmRepository {
         session: RingingSession,
         expectedStatuses: Set<SessionStatus>,
         event: AlarmEvent? = null,
+        alarmUpdate: Alarm? = null,
     ): Boolean
+
+    suspend fun pendingSchedules(): List<PendingAlarmSchedule> = emptyList()
+
+    suspend fun acknowledgePendingSchedule(
+        sessionId: String,
+        scheduledAt: java.time.Instant,
+    ): Boolean = false
 
     suspend fun appendEvent(event: AlarmEvent)
 

@@ -4,6 +4,8 @@ import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalTime
 
+const val MAX_SNOOZE_COUNT = 3
+
 enum class ChallengeType {
     SQUAT,
     JUMPING_JACK,
@@ -50,6 +52,13 @@ data class RingingSession(
     val challengeType: ChallengeType,
     val targetCount: Int,
     val status: SessionStatus,
+    val pendingScheduleAt: Instant? = null,
+)
+
+data class PendingAlarmSchedule(
+    val sessionId: String,
+    val alarmId: String,
+    val scheduledAt: Instant,
 )
 
 data class AlarmEvent(

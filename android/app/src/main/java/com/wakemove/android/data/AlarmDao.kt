@@ -46,6 +46,35 @@ abstract class AlarmDao {
     )
     abstract suspend fun activeSession(): RingingSessionEntity?
 
+    @Query(
+        """
+        SELECT * FROM ringing_sessions
+        WHERE pending_schedule_at_epoch_second IS NOT NULL
+        ORDER BY
+            pending_schedule_at_epoch_second ASC,
+            pending_schedule_at_nano ASC,
+            id ASC
+        """,
+    )
+    abstract suspend fun pendingSessions(): List<RingingSessionEntity>
+
+    @Query(
+        """
+        UPDATE ringing_sessions
+        SET
+            pending_schedule_at_epoch_second = NULL,
+            pending_schedule_at_nano = NULL
+        WHERE id = :sessionId
+          AND pending_schedule_at_epoch_second = :scheduledAtEpochSecond
+          AND pending_schedule_at_nano = :scheduledAtNano
+        """,
+    )
+    abstract suspend fun acknowledgePendingSchedule(
+        sessionId: String,
+        scheduledAtEpochSecond: Long,
+        scheduledAtNano: Int,
+    ): Int
+
     @Insert
     abstract suspend fun appendEvent(event: AlarmEventEntity)
 
@@ -54,11 +83,13 @@ abstract class AlarmDao {
         session: RingingSessionEntity,
         expectedStatuses: Set<String>,
         event: AlarmEventEntity?,
+        alarmUpdate: AlarmEntity?,
     ): Boolean {
         val current = getSession(session.id) ?: return false
         if (current.status !in expectedStatuses) return false
         saveSession(session)
         if (event != null) appendEvent(event)
+        if (alarmUpdate != null) upsertAlarm(alarmUpdate)
         return true
     }
 

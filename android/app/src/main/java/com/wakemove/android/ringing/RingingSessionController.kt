@@ -4,10 +4,12 @@ import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.AlarmEvent
 import com.wakemove.android.domain.AlarmEventResult
 import com.wakemove.android.domain.AlarmRepository
+import com.wakemove.android.domain.MAX_SNOOZE_COUNT
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.ScheduleCalculator
 import com.wakemove.android.domain.SessionStatus
 import com.wakemove.android.scheduling.AlarmScheduler
+import com.wakemove.android.scheduling.PendingScheduleRecovery
 import java.time.Clock
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -35,7 +37,9 @@ class RingingSessionController(
     private val repository: AlarmRepository,
     private val audioPlayer: AlarmAudioPlayer,
     private val vibrator: AlarmVibrator,
-    private val scheduler: AlarmScheduler,
+    scheduler: AlarmScheduler,
+    private val pendingScheduleRecovery: PendingScheduleRecovery =
+        PendingScheduleRecovery(repository, scheduler),
     private val clock: Clock = Clock.systemUTC(),
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
     private val sessionIdFactory: () -> String = { UUID.randomUUID().toString() },
@@ -65,7 +69,10 @@ class RingingSessionController(
 
             active.alarmId != alarm.id -> return false
             active.status == SessionStatus.SNOOZED -> {
-                val ringing = active.copy(status = SessionStatus.RINGING)
+                val ringing = active.copy(
+                    status = SessionStatus.RINGING,
+                    pendingScheduleAt = null,
+                )
                 val transitioned = repository.transitionSession(
                     session = ringing,
                     expectedStatuses = setOf(SessionStatus.SNOOZED),
@@ -98,11 +105,15 @@ class RingingSessionController(
         val alarm = current.alarm ?: return false
         val session = current.session?.takeIf { it.status == SessionStatus.RINGING }
             ?: return false
-        if (session.snoozeCount >= alarm.snoozeLimit) return false
+        if (session.snoozeCount >= effectiveSnoozeLimit(alarm)) return false
 
+        val trigger = clock.instant().plusSeconds(
+            alarm.snoozeMinutes * SECONDS_PER_MINUTE,
+        )
         val snoozed = session.copy(
             snoozeCount = session.snoozeCount + 1,
             status = SessionStatus.SNOOZED,
+            pendingScheduleAt = trigger,
         )
         if (!repository.transitionSession(
                 session = snoozed,
@@ -114,10 +125,7 @@ class RingingSessionController(
 
         mutableState.value = stateFor(alarm, snoozed)
         try {
-            scheduler.schedule(
-                alarm,
-                clock.instant().plusSeconds(alarm.snoozeMinutes * SECONDS_PER_MINUTE),
-            )
+            pendingScheduleRecovery.recover(snoozed.id)
         } finally {
             stopAlerting(alarm, snoozed)
         }
@@ -129,6 +137,8 @@ class RingingSessionController(
 
     suspend fun bypass(): Boolean =
         finish(SessionStatus.BYPASSED, AlarmEventResult.BYPASSED)
+
+    suspend fun recoverPendingSchedules() = pendingScheduleRecovery.recover()
 
     internal fun releaseAlerting() {
         audioPlayer.stop()
@@ -147,13 +157,21 @@ class RingingSessionController(
         val alarm = current.alarm ?: return false
         val session = current.session?.takeIf { it.status == SessionStatus.RINGING }
             ?: return false
-        val terminal = session.copy(status = status)
+        val finishedAt = clock.instant()
+        val nextRepeatAt = nextRepeatAt(alarm, finishedAt)
+        val terminal = session.copy(
+            status = status,
+            pendingScheduleAt = nextRepeatAt,
+        )
+        val alarmUpdate = alarm
+            .takeIf { it.repeatDays.isEmpty() }
+            ?.copy(enabled = false, updatedAt = finishedAt)
         val event = AlarmEvent(
             id = session.id,
             alarmId = alarm.id,
             scheduledAt = session.scheduledAt,
             startedAt = session.startedAt,
-            finishedAt = clock.instant(),
+            finishedAt = finishedAt,
             challengeType = session.challengeType,
             snoozeCount = session.snoozeCount,
             result = result,
@@ -162,25 +180,28 @@ class RingingSessionController(
                 session = terminal,
                 expectedStatuses = setOf(SessionStatus.RINGING),
                 event = event,
+                alarmUpdate = alarmUpdate,
             )
         ) {
             return false
         }
 
-        mutableState.value = stateFor(alarm, terminal)
+        val currentAlarm = alarmUpdate ?: alarm
+        mutableState.value = stateFor(currentAlarm, terminal)
         try {
-            scheduleNextRepeat(alarm)
+            if (terminal.pendingScheduleAt != null) {
+                pendingScheduleRecovery.recover(terminal.id)
+            }
         } finally {
-            stopAlerting(alarm, terminal)
+            stopAlerting(currentAlarm, terminal)
         }
         true
     }
 
-    private fun scheduleNextRepeat(alarm: Alarm) {
-        if (!alarm.enabled || alarm.repeatDays.isEmpty()) return
-        val now = ZonedDateTime.ofInstant(clock.instant(), zoneProvider())
-        val occurrence = ScheduleCalculator.nextOccurrence(alarm, now) ?: return
-        scheduler.schedule(alarm, occurrence.toInstant())
+    private fun nextRepeatAt(alarm: Alarm, now: java.time.Instant): java.time.Instant? {
+        if (!alarm.enabled || alarm.repeatDays.isEmpty()) return null
+        val zonedNow = ZonedDateTime.ofInstant(now, zoneProvider())
+        return ScheduleCalculator.nextOccurrence(alarm, zonedNow)?.toInstant()
     }
 
     private fun stopAlerting(alarm: Alarm, session: RingingSession) {
@@ -193,8 +214,13 @@ class RingingSessionController(
         alarm = alarm,
         session = session,
         soundState = audioPlayer.soundState,
-        remainingSnoozes = (alarm.snoozeLimit - session.snoozeCount).coerceAtLeast(0),
+        remainingSnoozes = (
+            effectiveSnoozeLimit(alarm) - session.snoozeCount
+        ).coerceAtLeast(0),
     )
+
+    private fun effectiveSnoozeLimit(alarm: Alarm): Int =
+        alarm.snoozeLimit.coerceIn(0, MAX_SNOOZE_COUNT)
 
     private companion object {
         const val SECONDS_PER_MINUTE = 60L

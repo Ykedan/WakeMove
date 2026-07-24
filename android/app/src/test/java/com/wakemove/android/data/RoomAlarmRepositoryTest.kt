@@ -5,6 +5,7 @@ import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.AlarmEvent
 import com.wakemove.android.domain.AlarmEventResult
 import com.wakemove.android.domain.ChallengeType
+import com.wakemove.android.domain.PendingAlarmSchedule
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.SessionStatus
 import java.time.DayOfWeek
@@ -110,6 +111,75 @@ class RoomAlarmRepositoryTest {
 
         assertNull(repository.activeSession())
         assertEquals(listOf(completed), repository.recentEvents())
+    }
+
+    @Test
+    fun `pending schedule round trips losslessly and is acknowledged by exact value`() =
+        runBlocking {
+            val scheduledAt = Instant.ofEpochSecond(1_800_000_010, 987_654_321)
+            val ringing = session().copy(pendingScheduleAt = scheduledAt)
+            repository.saveSession(ringing)
+
+            assertEquals(
+                listOf(
+                    PendingAlarmSchedule(
+                        sessionId = ringing.id,
+                        alarmId = ringing.alarmId,
+                        scheduledAt = scheduledAt,
+                    ),
+                ),
+                repository.pendingSchedules(),
+            )
+            assertEquals(
+                false,
+                repository.acknowledgePendingSchedule(
+                    ringing.id,
+                    scheduledAt.minusNanos(1),
+                ),
+            )
+            assertEquals(listOf(scheduledAt), repository.pendingSchedules().map { it.scheduledAt })
+
+            assertEquals(
+                true,
+                repository.acknowledgePendingSchedule(ringing.id, scheduledAt),
+            )
+            assertEquals(emptyList<PendingAlarmSchedule>(), repository.pendingSchedules())
+        }
+
+    @Test
+    fun `terminal transition atomically disables a one shot alarm`() = runBlocking {
+        val oneShot = alarm(id = "one-shot", repeatDays = emptySet())
+        val ringing = session(alarmId = oneShot.id)
+        val terminal = ringing.copy(status = SessionStatus.COMPLETED)
+        val completed = event(id = ringing.id, alarmId = oneShot.id)
+        repository.upsertAlarm(oneShot)
+        repository.saveSession(ringing)
+
+        assertEquals(
+            true,
+            repository.transitionSession(
+                session = terminal,
+                expectedStatuses = setOf(SessionStatus.RINGING),
+                event = completed,
+                alarmUpdate = oneShot.copy(enabled = false),
+            ),
+        )
+
+        assertEquals(false, repository.getAlarm(oneShot.id)?.enabled)
+        assertNull(repository.activeSession())
+        assertEquals(listOf(completed), repository.recentEvents())
+    }
+
+    @Test
+    fun `persisted snooze limit is clamped to zero through three`() = runBlocking {
+        val aboveMaximum = alarm(id = "above", snoozeLimit = 10)
+        val belowMinimum = alarm(id = "below", snoozeLimit = -4)
+
+        repository.upsertAlarm(aboveMaximum)
+        repository.upsertAlarm(belowMinimum)
+
+        assertEquals(3, repository.getAlarm(aboveMaximum.id)?.snoozeLimit)
+        assertEquals(0, repository.getAlarm(belowMinimum.id)?.snoozeLimit)
     }
 
     @Test
@@ -247,6 +317,7 @@ class RoomAlarmRepositoryTest {
         time: LocalTime = LocalTime.of(7, 30),
         repeatDays: Set<DayOfWeek> = setOf(DayOfWeek.MONDAY),
         challengeType: ChallengeType = ChallengeType.SQUAT,
+        snoozeLimit: Int = 2,
         createdAt: Instant = Instant.parse("2026-01-01T00:00:00Z"),
         updatedAt: Instant = Instant.parse("2026-01-02T00:00:00Z"),
     ) = Alarm(
@@ -258,7 +329,7 @@ class RoomAlarmRepositoryTest {
         soundId = "gentle-rise",
         vibrationEnabled = true,
         snoozeMinutes = 7,
-        snoozeLimit = 2,
+        snoozeLimit = snoozeLimit,
         challengeType = challengeType,
         targetCount = 12,
         createdAt = createdAt,

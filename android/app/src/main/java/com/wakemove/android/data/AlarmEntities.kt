@@ -64,6 +64,10 @@ data class RingingSessionEntity(
     @ColumnInfo(name = "target_count")
     val targetCount: Int,
     val status: String,
+    @ColumnInfo(name = "pending_schedule_at_epoch_second")
+    val pendingScheduleAtEpochSecond: Long?,
+    @ColumnInfo(name = "pending_schedule_at_nano")
+    val pendingScheduleAtNano: Int?,
 )
 
 @Entity(

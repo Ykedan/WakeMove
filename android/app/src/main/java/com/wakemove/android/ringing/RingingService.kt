@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Binder
 import android.os.IBinder
 import android.os.PowerManager
@@ -20,10 +21,13 @@ import com.wakemove.android.MainActivity
 import com.wakemove.android.scheduling.AlarmReceiver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 interface RingingDependencies {
     val ringingSessionController: RingingSessionController
@@ -32,8 +36,11 @@ interface RingingDependencies {
 class RingingService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val binder = RingingBinder()
+    private val commandMutex = Mutex()
     private lateinit var controller: RingingSessionController
     private var wakeLock: PowerManager.WakeLock? = null
+    private var ownership: SessionOwnership? = null
+    private var terminalObservation: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -41,29 +48,34 @@ class RingingService : Service() {
             ?: error("Application must implement RingingDependencies")
         controller = dependencies.ringingSessionController
         createNotificationChannel()
-        serviceScope.launch {
-            controller.state.collectLatest { state ->
-                val status = state.session?.status ?: return@collectLatest
-                if (status != com.wakemove.android.domain.SessionStatus.RINGING) {
-                    stopForegroundSession()
-                }
-            }
-        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val alarmId = intent?.getStringExtra(AlarmReceiver.EXTRA_ALARM_ID)
-        startForegroundImmediately(alarmId)
+        val sessionId = intent?.getStringExtra(EXTRA_SESSION_ID)
+        startForegroundImmediately(alarmId, sessionId)
         acquireWakeLock()
 
         serviceScope.launch {
-            when (intent?.action) {
-                AlarmReceiver.ACTION_START_RINGING ->
-                    alarmId?.let { controller.start(it) }
+            commandMutex.withLock {
+                try {
+                    when (intent?.action) {
+                        AlarmReceiver.ACTION_START_RINGING ->
+                            handleStart(alarmId, startId)
 
-                ACTION_SNOOZE -> controller.snooze()
-                ACTION_COMPLETE -> controller.complete()
-                ACTION_BYPASS -> controller.bypass()
+                        ACTION_SNOOZE, ACTION_COMPLETE, ACTION_BYPASS ->
+                            handleSessionCommand(
+                                action = checkNotNull(intent.action),
+                                alarmId = alarmId,
+                                sessionId = sessionId,
+                                startId = startId,
+                            )
+
+                        else -> rejectCommand(startId)
+                    }
+                } catch (_: Exception) {
+                    rejectCommand(startId)
+                }
             }
         }
         return START_REDELIVER_INTENT
@@ -72,14 +84,112 @@ class RingingService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        terminalObservation?.cancel()
         serviceScope.cancel()
         controller.releaseAlerting()
         releaseWakeLock()
+        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
 
-    private fun startForegroundImmediately(alarmId: String?) {
-        val notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
+    private suspend fun handleStart(alarmId: String?, startId: Int) {
+        if (alarmId == null) {
+            rejectCommand(startId)
+            return
+        }
+        val started = controller.start(alarmId)
+        val state = controller.state.value
+        val session = state.session
+        if ((!started && !state.isRinging(alarmId)) ||
+            session == null ||
+            session.status != com.wakemove.android.domain.SessionStatus.RINGING
+        ) {
+            rejectCommand(startId)
+            return
+        }
+
+        claimSession(startId, alarmId, session.id)
+        controller.recoverPendingSchedules()
+    }
+
+    private suspend fun handleSessionCommand(
+        action: String,
+        alarmId: String?,
+        sessionId: String?,
+        startId: Int,
+    ) {
+        if (alarmId == null || sessionId == null ||
+            !hydrateAddressedSession(alarmId, sessionId)
+        ) {
+            rejectCommand(startId)
+            return
+        }
+
+        claimSession(startId, alarmId, sessionId)
+        val transitioned = when (action) {
+            ACTION_SNOOZE -> controller.snooze()
+            ACTION_COMPLETE -> controller.complete()
+            ACTION_BYPASS -> controller.bypass()
+            else -> false
+        }
+        if (transitioned) {
+            stopOwnedSession(SessionOwnership(startId, alarmId, sessionId))
+        } else {
+            rejectCommand(startId)
+        }
+    }
+
+    private suspend fun hydrateAddressedSession(
+        alarmId: String,
+        sessionId: String,
+    ): Boolean {
+        if (controller.state.value.isRinging(alarmId, sessionId)) return true
+        controller.start(alarmId)
+        return controller.state.value.isRinging(alarmId, sessionId)
+    }
+
+    private fun claimSession(startId: Int, alarmId: String, sessionId: String) {
+        val claimed = SessionOwnership(startId, alarmId, sessionId)
+        ownership = claimed
+        terminalObservation?.cancel()
+        startForegroundImmediately(alarmId, sessionId)
+        terminalObservation = serviceScope.launch {
+            controller.state.collect { state ->
+                val session = state.session ?: return@collect
+                if (session.id == sessionId &&
+                    session.status != com.wakemove.android.domain.SessionStatus.RINGING
+                ) {
+                    stopOwnedSession(claimed)
+                }
+            }
+        }
+    }
+
+    private fun rejectCommand(startId: Int) {
+        if (!stopSelfResult(startId)) return
+        ownership = null
+        terminalObservation?.cancel()
+        terminalObservation = null
+        releaseForegroundResources()
+    }
+
+    private fun stopOwnedSession(expected: SessionOwnership) {
+        if (ownership != expected) return
+        if (!stopSelfResult(expected.startId)) return
+        ownership = null
+        terminalObservation?.cancel()
+        terminalObservation = null
+        releaseForegroundResources()
+    }
+
+    private fun releaseForegroundResources() {
+        controller.releaseAlerting()
+        releaseWakeLock()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+    }
+
+    private fun startForegroundImmediately(alarmId: String?, sessionId: String?) {
+        val builder = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("WakeMove alarm")
             .setContentText("Complete your wake-up challenge")
@@ -87,19 +197,25 @@ class RingingService : Service() {
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
-            .setContentIntent(fullScreenIntent(alarmId))
-            .setFullScreenIntent(fullScreenIntent(alarmId), true)
-            .addAction(
+            .setContentIntent(fullScreenIntent(alarmId, sessionId))
+            .setFullScreenIntent(fullScreenIntent(alarmId, sessionId), true)
+        if (alarmId != null && sessionId != null) {
+            builder.addAction(
                 Notification.Action.Builder(
                     null,
                     "Snooze",
-                    servicePendingIntent(ACTION_SNOOZE, REQUEST_SNOOZE),
+                    servicePendingIntent(
+                        action = ACTION_SNOOZE,
+                        requestCode = REQUEST_SNOOZE,
+                        alarmId = alarmId,
+                        sessionId = sessionId,
+                    ),
                 ).build(),
             )
-            .build()
+        }
         startForeground(
             NOTIFICATION_ID,
-            notification,
+            builder.build(),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
         )
     }
@@ -133,22 +249,17 @@ class RingingService : Service() {
             }
     }
 
-    private fun stopForegroundSession() {
-        releaseWakeLock()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-
     private fun releaseWakeLock() {
         wakeLock?.takeIf(PowerManager.WakeLock::isHeld)?.release()
         wakeLock = null
     }
 
-    private fun fullScreenIntent(alarmId: String?): PendingIntent {
+    private fun fullScreenIntent(alarmId: String?, sessionId: String?): PendingIntent {
         val intent = Intent(this, MainActivity::class.java)
             .setAction(ACTION_SHOW_RINGING)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             .putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
+            .putExtra(EXTRA_SESSION_ID, sessionId)
         return PendingIntent.getActivity(
             this,
             REQUEST_FULL_SCREEN,
@@ -157,11 +268,27 @@ class RingingService : Service() {
         )
     }
 
-    private fun servicePendingIntent(action: String, requestCode: Int): PendingIntent =
+    private fun servicePendingIntent(
+        action: String,
+        requestCode: Int,
+        alarmId: String,
+        sessionId: String,
+    ): PendingIntent =
         PendingIntent.getService(
             this,
             requestCode,
-            Intent(this, RingingService::class.java).setAction(action),
+            Intent(this, RingingService::class.java)
+                .setAction(action)
+                .setData(
+                    Uri.Builder()
+                        .scheme("wakemove")
+                        .authority("ringing")
+                        .appendPath(sessionId)
+                        .appendPath(action)
+                        .build(),
+                )
+                .putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
+                .putExtra(EXTRA_SESSION_ID, sessionId),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -176,6 +303,7 @@ class RingingService : Service() {
         const val ACTION_SNOOZE = "com.wakemove.android.action.SNOOZE"
         const val ACTION_COMPLETE = "com.wakemove.android.action.COMPLETE"
         const val ACTION_BYPASS = "com.wakemove.android.action.BYPASS"
+        const val EXTRA_SESSION_ID = "com.wakemove.android.extra.SESSION_ID"
 
         private const val NOTIFICATION_ID = 10_001
         private const val REQUEST_FULL_SCREEN = 20_001
@@ -183,7 +311,18 @@ class RingingService : Service() {
         private const val WAKE_LOCK_TAG = "WakeMove:Ringing"
         private const val WAKE_LOCK_TIMEOUT_MILLIS = 15 * 60 * 1_000L
     }
+
+    private data class SessionOwnership(
+        val startId: Int,
+        val alarmId: String,
+        val sessionId: String,
+    )
 }
+
+private fun RingingUiState.isRinging(alarmId: String, sessionId: String? = null): Boolean =
+    alarm?.id == alarmId &&
+        session?.status == com.wakemove.android.domain.SessionStatus.RINGING &&
+        (sessionId == null || session.id == sessionId)
 
 class AndroidAlarmVibrator(
     context: Context,

@@ -5,9 +5,11 @@ import com.wakemove.android.domain.AlarmEvent
 import com.wakemove.android.domain.AlarmEventResult
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
+import com.wakemove.android.domain.PendingAlarmSchedule
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.SessionStatus
 import com.wakemove.android.scheduling.AlarmScheduler
+import com.wakemove.android.scheduling.PendingScheduleRecovery
 import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Instant
@@ -72,6 +74,100 @@ class RingingSessionControllerTest {
         assertEquals(0, controller.state.value.remainingSnoozes)
         assertEquals(alarm.snoozeLimit, scheduler.scheduled.size)
         assertTrue(scheduler.scheduled.all { it.second == now.plusSeconds(5 * 60L) })
+    }
+
+    @Test
+    fun `stored snooze limit above three is still capped at three`() = runBlocking {
+        val alarm = alarm(snoozeLimit = 10)
+        val repository = FakeAlarmRepository(alarm)
+        val controller = controller(
+            repository = repository,
+            audioPlayer = FakeAlarmAudioPlayer(),
+            vibrator = FakeAlarmVibrator(),
+        )
+
+        repeat(3) {
+            assertTrue(controller.start(alarm.id))
+            assertTrue(controller.snooze())
+        }
+        assertTrue(controller.start(alarm.id))
+
+        assertFalse(controller.snooze())
+        assertEquals(3, repository.session?.snoozeCount)
+        assertEquals(0, controller.state.value.remainingSnoozes)
+    }
+
+    @Test
+    fun `failed snooze registration remains pending and retries`() = runBlocking {
+        val repository = FakeAlarmRepository(alarm)
+        val scheduler = FakeAlarmScheduler(fail = true)
+        val audioPlayer = FakeAlarmAudioPlayer()
+        val vibrator = FakeAlarmVibrator()
+        val controller = controller(repository, audioPlayer, vibrator, scheduler)
+        controller.start(alarm.id)
+
+        assertTrue(controller.snooze())
+
+        val trigger = now.plusSeconds(5 * 60L)
+        assertEquals(trigger, repository.session?.pendingScheduleAt)
+        assertEquals(1, scheduler.attempts)
+        assertEquals(AlarmSoundState.STOPPED, audioPlayer.soundState)
+        assertEquals(1, vibrator.stopCount)
+
+        scheduler.fail = false
+        PendingScheduleRecovery(repository, scheduler).recover()
+
+        assertEquals(2, scheduler.attempts)
+        assertEquals(listOf(alarm to trigger), scheduler.scheduled)
+        assertEquals(null, repository.session?.pendingScheduleAt)
+    }
+
+    @Test
+    fun `repeat registration retries after schedule succeeds before acknowledge`() = runBlocking {
+        val repository = FakeAlarmRepository(alarm).apply {
+            acknowledgeSchedules = false
+        }
+        val scheduler = FakeAlarmScheduler()
+        val controller = controller(
+            repository,
+            FakeAlarmAudioPlayer(),
+            FakeAlarmVibrator(),
+            scheduler,
+        )
+        controller.start(alarm.id)
+
+        assertTrue(controller.complete())
+
+        val trigger = Instant.parse("2026-07-30T23:30:00Z")
+        assertEquals(trigger, repository.session?.pendingScheduleAt)
+        assertEquals(listOf(alarm to trigger), scheduler.scheduled)
+
+        repository.acknowledgeSchedules = true
+        PendingScheduleRecovery(repository, scheduler).recover()
+
+        assertEquals(listOf(alarm to trigger, alarm to trigger), scheduler.scheduled)
+        assertEquals(null, repository.session?.pendingScheduleAt)
+    }
+
+    @Test
+    fun `one shot completion disables the alarm without scheduling it again`() = runBlocking {
+        val oneShot = alarm(repeatDays = emptySet())
+        val repository = FakeAlarmRepository(oneShot)
+        val scheduler = FakeAlarmScheduler()
+        val controller = controller(
+            repository,
+            FakeAlarmAudioPlayer(),
+            FakeAlarmVibrator(),
+            scheduler,
+        )
+        controller.start(oneShot.id)
+
+        assertTrue(controller.complete())
+
+        assertEquals(false, repository.alarm?.enabled)
+        assertEquals(SessionStatus.COMPLETED, repository.session?.status)
+        assertEquals(null, repository.session?.pendingScheduleAt)
+        assertTrue(scheduler.scheduled.isEmpty())
     }
 
     @Test
@@ -148,16 +244,19 @@ class RingingSessionControllerTest {
         sessionIdFactory = { "session-id" },
     )
 
-    private fun alarm() = Alarm(
+    private fun alarm(
+        snoozeLimit: Int = 3,
+        repeatDays: Set<DayOfWeek> = setOf(DayOfWeek.FRIDAY),
+    ) = Alarm(
         id = "alarm-id",
         time = LocalTime.of(7, 30),
         label = "Morning",
         enabled = true,
-        repeatDays = setOf(DayOfWeek.FRIDAY),
+        repeatDays = repeatDays,
         soundId = "default",
         vibrationEnabled = true,
         snoozeMinutes = 5,
-        snoozeLimit = 3,
+        snoozeLimit = snoozeLimit,
         challengeType = ChallengeType.SQUAT,
         targetCount = 10,
         createdAt = Instant.parse("2026-01-01T00:00:00Z"),
@@ -166,12 +265,15 @@ class RingingSessionControllerTest {
 }
 
 private class FakeAlarmRepository(
-    private val alarm: Alarm?,
+    alarm: Alarm?,
     private val order: MutableList<String> = mutableListOf(),
 ) : AlarmRepository {
+    var alarm: Alarm? = alarm
+        private set
     var session: RingingSession? = null
         private set
     val events = mutableListOf<AlarmEvent>()
+    var acknowledgeSchedules = true
 
     override fun observeAlarms(): Flow<List<Alarm>> = flowOf(listOfNotNull(alarm))
 
@@ -193,11 +295,39 @@ private class FakeAlarmRepository(
         session: RingingSession,
         expectedStatuses: Set<SessionStatus>,
         event: AlarmEvent?,
+        alarmUpdate: Alarm?,
     ): Boolean {
         val current = this.session ?: return false
         if (current.id != session.id || current.status !in expectedStatuses) return false
         this.session = session
         if (event != null) events += event
+        if (alarmUpdate != null) alarm = alarmUpdate
+        return true
+    }
+
+    override suspend fun pendingSchedules(): List<PendingAlarmSchedule> =
+        listOfNotNull(
+            session?.pendingScheduleAt?.let { scheduledAt ->
+                PendingAlarmSchedule(
+                    sessionId = checkNotNull(session).id,
+                    alarmId = checkNotNull(session).alarmId,
+                    scheduledAt = scheduledAt,
+                )
+            },
+        )
+
+    override suspend fun acknowledgePendingSchedule(
+        sessionId: String,
+        scheduledAt: Instant,
+    ): Boolean {
+        val current = session ?: return false
+        if (!acknowledgeSchedules ||
+            current.id != sessionId ||
+            current.pendingScheduleAt != scheduledAt
+        ) {
+            return false
+        }
+        session = current.copy(pendingScheduleAt = null)
         return true
     }
 
@@ -250,10 +380,16 @@ private class FakeAlarmVibrator(
     }
 }
 
-private class FakeAlarmScheduler : AlarmScheduler {
+private class FakeAlarmScheduler(
+    var fail: Boolean = false,
+) : AlarmScheduler {
     val scheduled = mutableListOf<Pair<Alarm, Instant>>()
+    var attempts = 0
+        private set
 
     override fun schedule(alarm: Alarm, at: Instant) {
+        attempts += 1
+        if (fail) error("scheduler unavailable")
         scheduled += alarm to at
     }
 

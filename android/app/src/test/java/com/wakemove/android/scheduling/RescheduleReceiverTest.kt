@@ -95,6 +95,52 @@ class RescheduleReceiverTest {
     }
 
     @Test
+    fun `pending schedules recover after regular rescheduling`() {
+        val order = mutableListOf<String>()
+        val executor = QueuedExecutor()
+        val receiver = RescheduleReceiver(
+            schedulerProvider = { RecordingScheduler(order = order) },
+            executor = executor,
+            pendingRecovery = { order += "pending" },
+        )
+        val context: Context = RuntimeEnvironment.getApplication()
+        context.registerReceiver(
+            receiver,
+            IntentFilter(Intent.ACTION_BOOT_COMPLETED),
+            Context.RECEIVER_EXPORTED,
+        )
+
+        context.sendBroadcast(Intent(Intent.ACTION_BOOT_COMPLETED))
+        shadowOf(Looper.getMainLooper()).idle()
+        executor.runNext()
+
+        assertEquals(listOf("regular", "pending"), order)
+    }
+
+    @Test
+    fun `pending schedules still recover when regular rescheduling fails`() {
+        val order = mutableListOf<String>()
+        val executor = QueuedExecutor()
+        val receiver = RescheduleReceiver(
+            schedulerProvider = { RecordingScheduler(fail = true, order = order) },
+            executor = executor,
+            pendingRecovery = { order += "pending" },
+        )
+        val context: Context = RuntimeEnvironment.getApplication()
+        context.registerReceiver(
+            receiver,
+            IntentFilter(Intent.ACTION_TIME_CHANGED),
+            Context.RECEIVER_EXPORTED,
+        )
+
+        context.sendBroadcast(Intent(Intent.ACTION_TIME_CHANGED))
+        shadowOf(Looper.getMainLooper()).idle()
+        executor.runNext()
+
+        assertEquals(listOf("regular", "pending"), order)
+    }
+
+    @Test
     @Suppress("DEPRECATION")
     fun `timezone change broadcast recalculates alarm in the current system zone`() {
         val originalTimeZone = TimeZone.getDefault()
@@ -174,6 +220,7 @@ private class QueuedExecutor : Executor {
 
 private class RecordingScheduler(
     private val fail: Boolean = false,
+    private val order: MutableList<String>? = null,
 ) : AlarmScheduler {
     var rescheduled = false
 
@@ -182,6 +229,7 @@ private class RecordingScheduler(
     override fun cancel(alarmId: String) = Unit
 
     override suspend fun rescheduleAll() {
+        order?.add("regular")
         if (fail) error("boom")
         rescheduled = true
     }
@@ -206,6 +254,7 @@ private class SingleAlarmRepository(
         session: RingingSession,
         expectedStatuses: Set<com.wakemove.android.domain.SessionStatus>,
         event: AlarmEvent?,
+        alarmUpdate: Alarm?,
     ): Boolean = error("not used")
 
     override suspend fun appendEvent(event: AlarmEvent) = error("not used")

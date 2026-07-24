@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 
 interface SchedulingDependencies {
     val alarmScheduler: AlarmScheduler
+    val pendingScheduleRecovery: PendingScheduleRecovery
 }
 
 class RescheduleReceiver() : BroadcastReceiver() {
@@ -19,13 +20,20 @@ class RescheduleReceiver() : BroadcastReceiver() {
         dependencies.alarmScheduler
     }
     private var executor: Executor = RECOVERY_EXECUTOR
+    private var pendingRecovery: suspend (Context) -> Unit = { context ->
+        val dependencies = context.applicationContext as? SchedulingDependencies
+            ?: error("Application must implement SchedulingDependencies")
+        dependencies.pendingScheduleRecovery.recover()
+    }
 
     internal constructor(
         schedulerProvider: (Context) -> AlarmScheduler,
         executor: Executor,
+        pendingRecovery: suspend (Context) -> Unit = {},
     ) : this() {
         this.schedulerProvider = schedulerProvider
         this.executor = executor
+        this.pendingRecovery = pendingRecovery
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -36,10 +44,17 @@ class RescheduleReceiver() : BroadcastReceiver() {
             executor.execute {
                 try {
                     runBlocking {
-                        schedulerProvider(context).rescheduleAll()
+                        try {
+                            schedulerProvider(context).rescheduleAll()
+                        } catch (error: Exception) {
+                            Log.e(TAG, "Unable to restore regular alarm schedule", error)
+                        }
+                        try {
+                            pendingRecovery(context)
+                        } catch (error: Exception) {
+                            Log.e(TAG, "Unable to restore pending alarm schedule", error)
+                        }
                     }
-                } catch (error: Exception) {
-                    Log.e(TAG, "Unable to restore alarm schedule", error)
                 } finally {
                     pendingResult.finish()
                 }
