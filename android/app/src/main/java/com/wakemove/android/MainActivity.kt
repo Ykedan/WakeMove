@@ -4,10 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import com.wakemove.android.ringing.RingingService
+import com.wakemove.android.ui.navigation.AlarmUiDependencies
+import com.wakemove.android.ui.navigation.WakeMoveNavHost
+import com.wakemove.android.ui.theme.WakeMoveTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -15,7 +15,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             WakeMoveTheme {
-                Text("WakeMove")
+                val dependencies = application as AlarmUiDependencies
+                WakeMoveNavHost(
+                    repository = dependencies.alarmRepository,
+                    scheduler = dependencies.alarmScheduler,
+                    healthProvider = dependencies.healthService::snapshot,
+                )
             }
         }
     }
@@ -31,9 +36,4 @@ class MainActivity : ComponentActivity() {
         setShowWhenLocked(true)
         setTurnScreenOn(true)
     }
-}
-
-@Composable
-private fun WakeMoveTheme(content: @Composable () -> Unit) {
-    MaterialTheme(content = content)
 }

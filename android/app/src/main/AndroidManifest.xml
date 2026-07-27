@@ -30,7 +30,8 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:label="WakeMove"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:theme="@style/Theme.WakeMove">
         <activity
             android:name=".MainActivity"
             android:exported="true">
