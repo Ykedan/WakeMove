@@ -1,6 +1,7 @@
 package com.wakemove.android.ui
 
 import android.Manifest
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -17,6 +18,10 @@ import androidx.compose.ui.test.cancel
 import androidx.compose.ui.test.up
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.test.espresso.Espresso
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.wakemove.android.challenge.CameraGuidance
 import com.wakemove.android.challenge.ChallengeProgress
 import com.wakemove.android.challenge.SpeechChallengeState
@@ -151,18 +156,28 @@ class RingingFlowTest {
     fun permanentPermissionDenialOffersSystemRepairWithoutStoppingRinging() {
         val repository = SessionRepository(alarm())
         val controller = sessionController(repository)
+        val lifecycleOwner = ControlledLifecycleOwner()
+        var health by mutableStateOf(
+            readyHealth.copy(camera = HealthStatus.ACTION_REQUIRED),
+        )
         runBlocking { controller.start("alarm") }
         var repaired: HealthIssue? = null
+        lifecycleOwner.handle(Lifecycle.Event.ON_CREATE)
+        lifecycleOwner.handle(Lifecycle.Event.ON_START)
+        lifecycleOwner.handle(Lifecycle.Event.ON_RESUME)
         setContent {
-            RingingFlowHost(
-                controller = controller,
-                healthProvider = {
-                    readyHealth.copy(camera = HealthStatus.ACTION_REQUIRED)
-                },
-                permissionRequester = SensorPermissionRequester { _, result -> result(false) },
-                isPermissionPermanentlyDenied = { true },
-                onRepairHealth = { repaired = it },
-            )
+            CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) {
+                RingingFlowHost(
+                    controller = controller,
+                    healthProvider = { health },
+                    permissionRequester = SensorPermissionRequester { _, result -> result(false) },
+                    isPermissionPermanentlyDenied = { true },
+                    onRepairHealth = {
+                        repaired = it
+                        health = readyHealth
+                    },
+                )
+            }
         }
 
         composeRule.onNodeWithTag("start_challenge").performClick()
@@ -173,7 +188,10 @@ class RingingFlowTest {
         composeRule.runOnIdle {
             assertEquals(HealthIssue.CAMERA, repaired)
             assertEquals(SessionStatus.RINGING, controller.state.value.session?.status)
+            lifecycleOwner.handle(Lifecycle.Event.ON_PAUSE)
+            lifecycleOwner.handle(Lifecycle.Event.ON_RESUME)
         }
+        composeRule.onNodeWithTag("landmark_overlay").assertIsDisplayed()
     }
 
     @Test
@@ -230,6 +248,219 @@ class RingingFlowTest {
             .assertIsDisplayed()
         composeRule.onNodeWithText("允许相机").performClick()
         composeRule.onNodeWithTag("landmark_overlay").assertIsDisplayed()
+    }
+
+    @Test
+    fun temporaryCameraDenialCanUseTheRealSpeechFallback() {
+        val repository = SessionRepository(alarm())
+        val controller = sessionController(repository)
+        val speechSource = ControlledSpeechSource()
+        runBlocking { controller.start("alarm") }
+        setContent {
+            RingingFlowHost(
+                controller = controller,
+                healthProvider = {
+                    readyHealth.copy(camera = HealthStatus.ACTION_REQUIRED)
+                },
+                permissionRequester = SensorPermissionRequester { _, result -> result(false) },
+                isPermissionPermanentlyDenied = { false },
+                speechControllerFactory = { SpeechChallengeController(speechSource) },
+                speechPhraseProvider = { "今天也要准时起床" },
+            )
+        }
+
+        composeRule.onNodeWithTag("start_challenge").performClick()
+        composeRule.onNodeWithText("允许相机").performClick()
+        composeRule.onNodeWithText("备用目标：完整说出语音短句").assertIsDisplayed()
+        composeRule.onNodeWithText("改用语音挑战").performClick()
+
+        composeRule.onNodeWithText("目标：完整说出短句").assertIsDisplayed()
+        composeRule.onNodeWithText("今天也要准时起床").assertIsDisplayed()
+        composeRule.runOnIdle {
+            assertEquals(SessionStatus.RINGING, controller.state.value.session?.status)
+        }
+    }
+
+    @Test
+    fun permanentCameraDenialCanUseTheRealSpeechFallback() {
+        val repository = SessionRepository(alarm())
+        val controller = sessionController(repository)
+        val speechSource = ControlledSpeechSource()
+        runBlocking { controller.start("alarm") }
+        setContent {
+            RingingFlowHost(
+                controller = controller,
+                healthProvider = {
+                    readyHealth.copy(camera = HealthStatus.ACTION_REQUIRED)
+                },
+                permissionRequester = SensorPermissionRequester { _, result -> result(false) },
+                isPermissionPermanentlyDenied = { true },
+                speechControllerFactory = { SpeechChallengeController(speechSource) },
+                speechPhraseProvider = { "今天也要准时起床" },
+            )
+        }
+
+        composeRule.onNodeWithTag("start_challenge").performClick()
+        composeRule.onNodeWithText("允许相机").performClick()
+        composeRule.onNodeWithText("打开权限设置").assertIsDisplayed()
+        composeRule.onNodeWithText("改用语音挑战").performClick()
+
+        composeRule.onNodeWithText("目标：完整说出短句").assertIsDisplayed()
+        composeRule.onNodeWithText("今天也要准时起床").assertIsDisplayed()
+    }
+
+    @Test
+    fun grantedMicrophonePermissionRefreshesHealthAndEntersSpeechChallenge() {
+        val voiceAlarm = alarm().copy(
+            challengeType = ChallengeType.VOICE_PHRASE,
+            targetCount = 1,
+        )
+        val repository = SessionRepository(voiceAlarm)
+        val controller = sessionController(repository)
+        val speechSource = ControlledSpeechSource()
+        var health by mutableStateOf(
+            readyHealth.copy(microphone = HealthStatus.ACTION_REQUIRED),
+        )
+        var requestedPermission: String? = null
+        runBlocking { controller.start("alarm") }
+        setContent {
+            RingingFlowHost(
+                controller = controller,
+                healthProvider = { health },
+                permissionRequester = SensorPermissionRequester { permission, result ->
+                    requestedPermission = permission
+                    health = readyHealth
+                    result(true)
+                },
+                speechControllerFactory = { SpeechChallengeController(speechSource) },
+                speechPhraseProvider = { "今天也要准时起床" },
+            )
+        }
+
+        composeRule.onNodeWithTag("start_challenge").performClick()
+        composeRule.onNodeWithText("允许麦克风").performClick()
+
+        composeRule.onNodeWithText("目标：完整说出短句").assertIsDisplayed()
+        composeRule.onNodeWithText("今天也要准时起床").assertIsDisplayed()
+        composeRule.runOnIdle {
+            assertEquals(Manifest.permission.RECORD_AUDIO, requestedPermission)
+        }
+    }
+
+    @Test
+    fun temporaryMicrophoneDenialCanUseTheRealActionFallback() {
+        val voiceAlarm = alarm().copy(
+            challengeType = ChallengeType.VOICE_PHRASE,
+            targetCount = 1,
+        )
+        val repository = SessionRepository(voiceAlarm)
+        val controller = sessionController(repository)
+        runBlocking { controller.start("alarm") }
+        setContent {
+            RingingFlowHost(
+                controller = controller,
+                healthProvider = {
+                    readyHealth.copy(microphone = HealthStatus.ACTION_REQUIRED)
+                },
+                permissionRequester = SensorPermissionRequester { _, result -> result(false) },
+                isPermissionPermanentlyDenied = { false },
+                speechPhraseProvider = { "今天也要准时起床" },
+            )
+        }
+
+        composeRule.onNodeWithTag("start_challenge").performClick()
+        composeRule.onNodeWithText("允许麦克风").performClick()
+        composeRule.onNodeWithText("备用目标：深蹲 1 次").assertIsDisplayed()
+        composeRule.onNodeWithText("改用动作挑战").performClick()
+
+        composeRule.onNodeWithText("深蹲").assertIsDisplayed()
+        composeRule.onNodeWithText("0 / 1").assertIsDisplayed()
+        composeRule.runOnIdle {
+            assertEquals(SessionStatus.RINGING, controller.state.value.session?.status)
+        }
+    }
+
+    @Test
+    fun permanentMicrophoneDenialCanUseTheRealActionFallback() {
+        val voiceAlarm = alarm().copy(
+            challengeType = ChallengeType.VOICE_PHRASE,
+            targetCount = 1,
+        )
+        val repository = SessionRepository(voiceAlarm)
+        val controller = sessionController(repository)
+        runBlocking { controller.start("alarm") }
+        setContent {
+            RingingFlowHost(
+                controller = controller,
+                healthProvider = {
+                    readyHealth.copy(microphone = HealthStatus.ACTION_REQUIRED)
+                },
+                permissionRequester = SensorPermissionRequester { _, result -> result(false) },
+                isPermissionPermanentlyDenied = { true },
+                speechPhraseProvider = { "今天也要准时起床" },
+            )
+        }
+
+        composeRule.onNodeWithTag("start_challenge").performClick()
+        composeRule.onNodeWithText("允许麦克风").performClick()
+        composeRule.onNodeWithText("打开权限设置").assertIsDisplayed()
+        composeRule.onNodeWithText("改用动作挑战").performClick()
+
+        composeRule.onNodeWithText("深蹲").assertIsDisplayed()
+        composeRule.onNodeWithText("0 / 1").assertIsDisplayed()
+    }
+
+    @Test
+    fun permanentMicrophoneDenialSettingsResumeRefreshesIntoSpeechChallenge() {
+        val voiceAlarm = alarm().copy(
+            challengeType = ChallengeType.VOICE_PHRASE,
+            targetCount = 1,
+        )
+        val repository = SessionRepository(voiceAlarm)
+        val controller = sessionController(repository)
+        val speechSource = ControlledSpeechSource()
+        val lifecycleOwner = ControlledLifecycleOwner()
+        var health by mutableStateOf(
+            readyHealth.copy(microphone = HealthStatus.ACTION_REQUIRED),
+        )
+        var repaired: HealthIssue? = null
+        lifecycleOwner.handle(Lifecycle.Event.ON_CREATE)
+        lifecycleOwner.handle(Lifecycle.Event.ON_START)
+        lifecycleOwner.handle(Lifecycle.Event.ON_RESUME)
+        runBlocking { controller.start("alarm") }
+        setContent {
+            CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) {
+                RingingFlowHost(
+                    controller = controller,
+                    healthProvider = { health },
+                    permissionRequester = SensorPermissionRequester { _, result ->
+                        result(false)
+                    },
+                    isPermissionPermanentlyDenied = { true },
+                    onRepairHealth = {
+                        repaired = it
+                        health = readyHealth
+                    },
+                    speechControllerFactory = { SpeechChallengeController(speechSource) },
+                    speechPhraseProvider = { "今天也要准时起床" },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("start_challenge").performClick()
+        composeRule.onNodeWithText("允许麦克风").performClick()
+        composeRule.onNodeWithText("打开权限设置").performClick()
+        composeRule.runOnIdle {
+            assertEquals(HealthIssue.MICROPHONE, repaired)
+            lifecycleOwner.handle(Lifecycle.Event.ON_PAUSE)
+            lifecycleOwner.handle(Lifecycle.Event.ON_RESUME)
+        }
+
+        composeRule.onNodeWithText("目标：完整说出短句").assertIsDisplayed()
+        composeRule.onNodeWithText("今天也要准时起床").assertIsDisplayed()
+        composeRule.runOnIdle {
+            assertEquals(SessionStatus.RINGING, controller.state.value.session?.status)
+        }
     }
 
     @Test
@@ -488,18 +719,22 @@ class RingingFlowTest {
         var repaired: HealthIssue? = null
         setContent {
             HealthScreen(
-                snapshot = HealthSnapshot(
-                    exactAlarm = HealthStatus.ACTION_REQUIRED,
-                    notifications = HealthStatus.READY,
-                    fullScreenIntent = HealthStatus.READY,
-                    camera = HealthStatus.READY,
-                    microphone = HealthStatus.READY,
-                    batteryOptimization = HealthStatus.ACTION_REQUIRED,
-                ),
-                scheduling = SchedulerHealthSnapshot(
-                    lastResult = SchedulingResult.SUCCESS,
-                    nextRegisteredAt = Instant.parse("2026-07-28T00:30:00Z"),
-                ),
+                healthProvider = {
+                    HealthSnapshot(
+                        exactAlarm = HealthStatus.ACTION_REQUIRED,
+                        notifications = HealthStatus.READY,
+                        fullScreenIntent = HealthStatus.READY,
+                        camera = HealthStatus.READY,
+                        microphone = HealthStatus.READY,
+                        batteryOptimization = HealthStatus.ACTION_REQUIRED,
+                    )
+                },
+                schedulingProvider = {
+                    SchedulerHealthSnapshot(
+                        lastResult = SchedulingResult.SUCCESS,
+                        nextRegisteredAt = Instant.parse("2026-07-28T00:30:00Z"),
+                    )
+                },
                 onRepair = { repaired = it },
                 zoneId = ZoneId.of("Asia/Shanghai"),
             )
@@ -509,6 +744,80 @@ class RingingFlowTest {
         composeRule.onNodeWithText("最近调度：成功").assertIsDisplayed()
         composeRule.onNodeWithText("下次已注册：07-28 08:30").assertIsDisplayed()
         composeRule.onNodeWithTag("repair_battery_optimization").assertIsDisplayed()
+    }
+
+    @Test
+    fun healthScreenRefreshesHealthSchedulingAndBatteryOnResumeWithoutDuplicates() {
+        val lifecycleOwner = ControlledLifecycleOwner()
+        var refreshed = false
+        var healthReads = 0
+        var schedulingReads = 0
+        var showHealth by mutableStateOf(true)
+        lifecycleOwner.handle(Lifecycle.Event.ON_CREATE)
+        lifecycleOwner.handle(Lifecycle.Event.ON_START)
+        lifecycleOwner.handle(Lifecycle.Event.ON_RESUME)
+        setContent {
+            CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) {
+                if (showHealth) {
+                    HealthScreen(
+                        healthProvider = {
+                            healthReads += 1
+                            HealthSnapshot(
+                                exactAlarm = HealthStatus.READY,
+                                notifications = HealthStatus.READY,
+                                fullScreenIntent = HealthStatus.READY,
+                                camera = HealthStatus.READY,
+                                microphone = HealthStatus.READY,
+                                batteryOptimization = if (refreshed) {
+                                    HealthStatus.READY
+                                } else {
+                                    HealthStatus.ACTION_REQUIRED
+                                },
+                            )
+                        },
+                        schedulingProvider = {
+                            schedulingReads += 1
+                            if (refreshed) {
+                                SchedulerHealthSnapshot(
+                                    lastResult = SchedulingResult.SUCCESS,
+                                    nextRegisteredAt = Instant.parse("2026-07-28T00:30:00Z"),
+                                )
+                            } else {
+                                SchedulerHealthSnapshot()
+                            }
+                        },
+                        onRepair = {},
+                        zoneId = ZoneId.of("Asia/Shanghai"),
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("repair_battery_optimization").assertIsDisplayed()
+        composeRule.onNodeWithText("最近调度：暂无记录").assertIsDisplayed()
+        composeRule.runOnIdle {
+            assertEquals(1, healthReads)
+            assertEquals(1, schedulingReads)
+            refreshed = true
+            lifecycleOwner.handle(Lifecycle.Event.ON_PAUSE)
+            lifecycleOwner.handle(Lifecycle.Event.ON_RESUME)
+        }
+
+        composeRule.onNodeWithTag("repair_battery_optimization").assertDoesNotExist()
+        composeRule.onNodeWithText("最近调度：成功").assertIsDisplayed()
+        composeRule.onNodeWithText("下次已注册：07-28 08:30").assertIsDisplayed()
+        composeRule.runOnIdle {
+            assertEquals(2, healthReads)
+            assertEquals(2, schedulingReads)
+            showHealth = false
+        }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle {
+            lifecycleOwner.handle(Lifecycle.Event.ON_PAUSE)
+            lifecycleOwner.handle(Lifecycle.Event.ON_RESUME)
+            assertEquals(2, healthReads)
+            assertEquals(2, schedulingReads)
+        }
     }
 
     @Test
@@ -634,6 +943,15 @@ class RingingFlowTest {
 
         fun emit(event: SpeechRecognitionEvent) {
             listener?.invoke(event)
+        }
+    }
+
+    private class ControlledLifecycleOwner : LifecycleOwner {
+        private val registry = LifecycleRegistry.createUnsafe(this)
+        override val lifecycle: Lifecycle = registry
+
+        fun handle(event: Lifecycle.Event) {
+            registry.handleLifecycleEvent(event)
         }
     }
 

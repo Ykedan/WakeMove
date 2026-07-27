@@ -165,6 +165,13 @@ fun RingingFlowHost(
     }
 
     permissionPrompt?.let { prompt ->
+        val fallbackRoute = when (prompt.issue) {
+            HealthIssue.CAMERA -> RingingRoute.SPEECH
+            HealthIssue.MICROPHONE -> RingingRoute.CAMERA
+            else -> null
+        }
+        val fallbackAvailable = fallbackRoute != null &&
+            health.statusFor(fallbackRoute.healthIssue()) != HealthStatus.UNAVAILABLE
         PermissionRationaleScreen(
             alarmTime = alarm.time.format(DateTimeFormatter.ofPattern("HH:mm")),
             alarmLabel = alarm.label,
@@ -172,6 +179,24 @@ fun RingingFlowHost(
             issue = prompt.issue,
             denied = prompt.stage != PermissionStage.RATIONALE,
             permanentlyDenied = prompt.stage == PermissionStage.PERMANENTLY_DENIED,
+            fallbackLabel = if (fallbackAvailable) {
+                if (fallbackRoute == RingingRoute.SPEECH) {
+                    "改用语音挑战"
+                } else {
+                    "改用动作挑战"
+                }
+            } else {
+                null
+            },
+            fallbackTarget = if (fallbackAvailable) {
+                if (fallbackRoute == RingingRoute.SPEECH) {
+                    "完整说出语音短句"
+                } else {
+                    "${session.challengeType.cameraType().localizedName()} ${session.targetCount} 次"
+                }
+            } else {
+                null
+            },
             onRequestPermission = {
                 if (permissionRequester == null) {
                     activityResultLauncher.launch(prompt.permission)
@@ -182,6 +207,10 @@ fun RingingFlowHost(
                 }
             },
             onOpenSettings = { actualRepair(prompt.issue) },
+            onUseFallback = {
+                permissionPrompt = null
+                checkNotNull(fallbackRoute).let(::startChallenge)
+            },
             modifier = modifier,
         )
         return
@@ -357,6 +386,19 @@ private fun LiveSpeechChallenge(
 
 private fun ChallengeType.cameraType(): ChallengeType =
     if (this == ChallengeType.VOICE_PHRASE) ChallengeType.SQUAT else this
+
+private fun ChallengeType.localizedName(): String = when (this) {
+    ChallengeType.SQUAT -> "深蹲"
+    ChallengeType.JUMPING_JACK -> "开合跳"
+    ChallengeType.HANDS_UP -> "双手举起"
+    ChallengeType.VOICE_PHRASE -> "语音短句"
+}
+
+private fun RingingRoute.healthIssue(): HealthIssue = when (this) {
+    RingingRoute.CAMERA -> HealthIssue.CAMERA
+    RingingRoute.SPEECH -> HealthIssue.MICROPHONE
+    RingingRoute.RINGING -> error("Ringing route has no sensor permission")
+}
 
 private fun HealthSnapshot.statusFor(issue: HealthIssue): HealthStatus = when (issue) {
     HealthIssue.CAMERA -> camera

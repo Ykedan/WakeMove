@@ -10,6 +10,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -18,6 +23,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.wakemove.android.health.HealthSnapshot
 import com.wakemove.android.health.HealthStatus
 import com.wakemove.android.scheduling.SchedulerHealthSnapshot
@@ -36,12 +44,31 @@ enum class HealthIssue {
 
 @Composable
 fun HealthScreen(
-    snapshot: HealthSnapshot,
+    healthProvider: () -> HealthSnapshot,
+    schedulingProvider: () -> SchedulerHealthSnapshot,
     onRepair: (HealthIssue) -> Unit,
     modifier: Modifier = Modifier,
-    scheduling: SchedulerHealthSnapshot = SchedulerHealthSnapshot(),
     zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var refreshVersion by remember { mutableIntStateOf(0) }
+    val snapshot = remember(refreshVersion) { healthProvider() }
+    val scheduling = remember(refreshVersion) { schedulingProvider() }
+    DisposableEffect(lifecycleOwner) {
+        var skipInitialResume = lifecycleOwner.lifecycle.currentState
+            .isAtLeast(Lifecycle.State.RESUMED)
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (skipInitialResume) {
+                    skipInitialResume = false
+                } else {
+                    refreshVersion += 1
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     Column(
         modifier = modifier.fillMaxSize().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),

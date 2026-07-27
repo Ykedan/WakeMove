@@ -24,8 +24,11 @@ internal fun PermissionRationaleScreen(
     issue: HealthIssue,
     denied: Boolean,
     permanentlyDenied: Boolean,
+    fallbackLabel: String?,
+    fallbackTarget: String?,
     onRequestPermission: () -> Unit,
     onOpenSettings: () -> Unit,
+    onUseFallback: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -62,6 +65,19 @@ internal fun PermissionRationaleScreen(
                 color = Color(0xFFFCA5A5),
                 modifier = Modifier.padding(24.dp),
             )
+        }
+        if (denied && fallbackLabel != null && fallbackTarget != null) {
+            Text(
+                "备用目标：$fallbackTarget",
+                color = Color(0xFFD1D5DB),
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            OutlinedButton(
+                onClick = onUseFallback,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+            ) {
+                Text(fallbackLabel, color = Color.White)
+            }
         }
         Spacer(Modifier.weight(1f))
         if (!permanentlyDenied) {

@@ -106,6 +106,7 @@ fun WakeMoveNavHost(
     val editorOperation by editorViewModel.operationState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val schedulingProvider = remember(scheduler) { { scheduler.healthSnapshot() } }
 
     var route by rememberSaveable { mutableStateOf(ROUTE_ALARMS) }
     var historyVersion by rememberSaveable { mutableIntStateOf(0) }
@@ -203,8 +204,8 @@ fun WakeMoveNavHost(
                 onEnabledChange = listViewModel::submitEnabledChange,
                 onOpenSettings = { route = ROUTE_SETTINGS },
                 historyEvents = historyEvents,
-                healthSnapshot = healthProvider(),
-                schedulingHealth = scheduler.healthSnapshot(),
+                healthProvider = healthProvider,
+                schedulingProvider = schedulingProvider,
                 onClearHistory = {
                     coroutineScope.launch {
                         repository.clearHistory()
@@ -229,8 +230,8 @@ private fun MainShell(
     onEnabledChange: (Alarm, Boolean) -> Unit,
     onOpenSettings: () -> Unit,
     historyEvents: List<AlarmEvent>,
-    healthSnapshot: HealthSnapshot,
-    schedulingHealth: com.wakemove.android.scheduling.SchedulerHealthSnapshot,
+    healthProvider: () -> HealthSnapshot,
+    schedulingProvider: () -> com.wakemove.android.scheduling.SchedulerHealthSnapshot,
     onClearHistory: () -> Unit,
     onRepairHealth: (HealthIssue) -> Unit,
     modifier: Modifier = Modifier,
@@ -280,8 +281,8 @@ private fun MainShell(
                     modifier = Modifier.fillMaxSize(),
                 )
                 MainDestination.HEALTH -> HealthScreen(
-                    snapshot = healthSnapshot,
-                    scheduling = schedulingHealth,
+                    healthProvider = healthProvider,
+                    schedulingProvider = schedulingProvider,
                     onRepair = onRepairHealth,
                     modifier = Modifier.fillMaxSize(),
                 )
