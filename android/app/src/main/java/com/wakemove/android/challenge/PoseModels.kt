@@ -55,6 +55,7 @@ data class ChallengeProgress(
     val targetCount: Int = 0,
     val completed: Boolean = false,
     val guidance: CameraGuidance = CameraGuidance.NONE,
+    val landmarks: List<Landmark> = emptyList(),
     val fallbackAvailable: Boolean = false,
 )
 

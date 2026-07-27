@@ -90,6 +90,7 @@ class CameraChallengeController(
                         repetitions = updated.repetitions,
                         completed = updated.repetitions >= targetCount,
                         guidance = CameraGuidance.NONE,
+                        landmarks = observation.frame.landmarks.values.toList(),
                     )
                 }
             }

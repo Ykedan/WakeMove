@@ -27,6 +27,7 @@ class CameraChallengeControllerTest {
                 targetCount = 1,
                 completed = true,
                 guidance = CameraGuidance.NONE,
+                landmarks = standing().values.toList(),
                 fallbackAvailable = false,
             ),
             controller.progress.value,

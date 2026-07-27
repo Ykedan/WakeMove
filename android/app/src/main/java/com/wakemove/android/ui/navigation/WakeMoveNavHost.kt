@@ -13,35 +13,49 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wakemove.android.domain.Alarm
+import com.wakemove.android.domain.AlarmEvent
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
+import com.wakemove.android.domain.SessionStatus
 import com.wakemove.android.health.AndroidHealthService
 import com.wakemove.android.health.HealthSnapshot
+import com.wakemove.android.ringing.RingingSessionController
 import com.wakemove.android.scheduling.AlarmScheduler
 import com.wakemove.android.ui.alarms.AlarmEditorScreen
 import com.wakemove.android.ui.alarms.AlarmEditorUiState
 import com.wakemove.android.ui.alarms.AlarmEditorViewModel
 import com.wakemove.android.ui.alarms.AlarmListScreen
 import com.wakemove.android.ui.alarms.AlarmListViewModel
+import com.wakemove.android.ui.health.HealthIssue
+import com.wakemove.android.ui.health.HealthScreen
+import com.wakemove.android.ui.health.launchHealthRepair
+import com.wakemove.android.ui.history.HistoryScreen
+import com.wakemove.android.ui.ringing.RingingFlowHost
+import com.wakemove.android.ui.settings.SettingsScreen
 import java.time.DayOfWeek
+import kotlinx.coroutines.launch
 
 interface AlarmUiDependencies {
     val alarmRepository: AlarmRepository
     val alarmScheduler: AlarmScheduler
     val healthService: AndroidHealthService
+    val ringingSessionController: RingingSessionController
 }
 
 private enum class MainDestination(
@@ -60,7 +74,15 @@ fun WakeMoveNavHost(
     scheduler: AlarmScheduler,
     healthProvider: () -> HealthSnapshot,
     modifier: Modifier = Modifier,
+    ringingController: RingingSessionController? = null,
 ) {
+    val ringingState = ringingController?.state?.collectAsState()?.value
+    if (ringingController != null &&
+        ringingState?.session?.status == SessionStatus.RINGING
+    ) {
+        RingingFlowHost(ringingController, healthProvider, modifier)
+        return
+    }
     val listFactory = remember(repository, scheduler, healthProvider) {
         WakeMoveViewModelFactory {
             AlarmListViewModel(repository, scheduler, healthProvider)
@@ -82,8 +104,20 @@ fun WakeMoveNavHost(
     val alarms by listViewModel.alarms.collectAsState(initial = emptyList())
     val listOperation by listViewModel.operationState.collectAsState()
     val editorOperation by editorViewModel.operationState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var route by rememberSaveable { mutableStateOf(ROUTE_ALARMS) }
+    var historyVersion by rememberSaveable { mutableIntStateOf(0) }
+    val historyEvents by produceState<List<AlarmEvent>>(
+        initialValue = emptyList(),
+        key1 = route,
+        key2 = historyVersion,
+    ) {
+        if (route == ROUTE_HISTORY) {
+            value = runCatching { repository.recentEvents() }.getOrDefault(emptyList())
+        }
+    }
     val stateSaver = remember(healthProvider) { alarmEditorStateSaver(healthProvider) }
     var editorState by rememberSaveable(stateSaver = stateSaver) {
         mutableStateOf(editorViewModel.newState())
@@ -137,9 +171,15 @@ fun WakeMoveNavHost(
             )
         }
         ROUTE_SETTINGS -> {
-            PlaceholderScreen(
-                title = "设置",
+            SettingsScreen(
                 onBack = { route = ROUTE_ALARMS },
+                onOpenHealth = { route = ROUTE_HEALTH },
+                onClearHistory = {
+                    coroutineScope.launch {
+                        repository.clearHistory()
+                        historyVersion += 1
+                    }
+                },
                 modifier = modifier,
             )
         }
@@ -162,6 +202,15 @@ fun WakeMoveNavHost(
                 },
                 onEnabledChange = listViewModel::submitEnabledChange,
                 onOpenSettings = { route = ROUTE_SETTINGS },
+                historyEvents = historyEvents,
+                healthSnapshot = healthProvider(),
+                onClearHistory = {
+                    coroutineScope.launch {
+                        repository.clearHistory()
+                        historyVersion += 1
+                    }
+                },
+                onRepairHealth = { issue -> launchHealthRepair(context, issue) },
                 modifier = modifier,
             )
         }
@@ -178,6 +227,10 @@ private fun MainShell(
     onEditAlarm: (Alarm) -> Unit,
     onEnabledChange: (Alarm, Boolean) -> Unit,
     onOpenSettings: () -> Unit,
+    historyEvents: List<AlarmEvent>,
+    healthSnapshot: HealthSnapshot,
+    onClearHistory: () -> Unit,
+    onRepairHealth: (HealthIssue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -219,31 +272,18 @@ private fun MainShell(
                     onOpenSettings = onOpenSettings,
                     modifier = Modifier.fillMaxSize(),
                 )
-                MainDestination.HISTORY -> PlaceholderContent("历史", Modifier.fillMaxSize())
-                MainDestination.HEALTH -> PlaceholderContent("健康检查", Modifier.fillMaxSize())
+                MainDestination.HISTORY -> HistoryScreen(
+                    events = historyEvents,
+                    onClearHistory = onClearHistory,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                MainDestination.HEALTH -> HealthScreen(
+                    snapshot = healthSnapshot,
+                    onRepair = onRepairHealth,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(
-    title: String,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    androidx.compose.foundation.layout.Column(modifier.fillMaxSize()) {
-        androidx.compose.material3.TextButton(onClick = onBack) {
-            Text("返回")
-        }
-        PlaceholderContent(title, Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun PlaceholderContent(title: String, modifier: Modifier = Modifier) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Text("${title}功能将在下一阶段接入")
     }
 }
 
