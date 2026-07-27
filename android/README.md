@@ -20,7 +20,7 @@ WakeMove 是一个 Android 10（API 29）及以上可用的本地闹钟原型。
 从仓库的 `android` 子目录运行：
 
 ```powershell
-$env:JAVA_HOME = 'D:\Android Studio\jbr'
+$env:JAVA_HOME = 'C:\path\to\Android Studio\jbr' # 替换为本机 Android Studio 的 jbr 目录
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 $env:PATH = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:PATH"
 
@@ -45,7 +45,7 @@ adb install -r .\app\build\outputs\apk\debug\app-debug.apk
 
 仓库只提供模板，不包含密钥或密码。首次构建时：
 
-1. 在仓库外创建一个仅供本项目开发测试的 JKS，例如 `D:\WakeMove-keys\wakemove-development.jks`。
+1. 在仓库外创建一个仅供本项目开发测试的 JKS。文档统一用通用占位路径 `D:/path/outside/repository/wakemove-development.jks`；请把 `path/outside/repository` 替换为你自己选择的仓库外目录。
 2. 将 `keystore.properties.example` 复制为 `keystore.properties`。
 3. 在 `keystore.properties` 中填写 `storeFile`、`storePassword`、`keyAlias` 和 `keyPassword`。
 4. 确认 `keystore.properties` 和 JKS 都没有出现在 `git status` 中。
@@ -54,6 +54,14 @@ adb install -r .\app\build\outputs\apk\debug\app-debug.apk
 ```powershell
 .\gradlew.bat assembleRelease
 ```
+
+Windows 路径在 `.properties` 文件中应写成正斜杠，例如：
+
+```properties
+storeFile=D:/path/outside/repository/wakemove-development.jks
+```
+
+也可以把每个反斜杠写成双反斜杠，例如 `D:\\path\\outside\\repository\\wakemove-development.jks`。不要写单反斜杠路径；Java `Properties.load` 会把反斜杠当成转义符，导致实际读取的路径不正确。
 
 缺少本地签名配置时，调试构建仍可运行；发布构建会给出明确错误并停止。不要把这个开发密钥当作商店生产密钥，也不要把密码粘贴到 issue、聊天、截图或构建日志中。
 
