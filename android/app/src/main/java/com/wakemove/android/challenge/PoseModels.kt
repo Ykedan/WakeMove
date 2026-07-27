@@ -52,4 +52,22 @@ data class PoseFrame(
 
 data class ChallengeProgress(
     val repetitions: Int,
+    val targetCount: Int = 0,
+    val completed: Boolean = false,
+    val guidance: CameraGuidance = CameraGuidance.NONE,
+    val fallbackAvailable: Boolean = false,
 )
+
+enum class CameraGuidance {
+    NONE,
+    LOW_LIGHT,
+    NO_PERSON,
+}
+
+sealed interface PoseObservation {
+    data class Frame(val frame: PoseFrame) : PoseObservation
+
+    data object LowLight : PoseObservation
+
+    data object NoPerson : PoseObservation
+}
