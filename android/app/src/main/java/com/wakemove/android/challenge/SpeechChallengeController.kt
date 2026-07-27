@@ -3,6 +3,8 @@ package com.wakemove.android.challenge
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -91,6 +93,7 @@ class SpeechChallengeController(
     private var phrase: String? = null
     private var started = false
     private var closed = false
+    private var attemptGeneration = 0L
 
     val state: StateFlow<SpeechChallengeState> = mutableState.asStateFlow()
 
@@ -121,35 +124,49 @@ class SpeechChallengeController(
         synchronized(lock) {
             if (closed) return
             closed = true
+            attemptGeneration += 1
             mutableState.value = SpeechChallengeState.Closed
         }
         recognitionSource.close()
     }
 
     private fun beginListening(currentPhrase: String) {
-        synchronized(lock) {
+        val generation = synchronized(lock) {
             if (closed) return
+            attemptGeneration += 1
             mutableState.value = SpeechChallengeState.Listening(currentPhrase)
+            attemptGeneration
         }
         try {
             recognitionSource.start(
                 SpeechRecognitionRequest.defaultZhCn(),
-                ::onRecognitionEvent,
-            )
+            ) { event ->
+                onRecognitionEvent(generation, event)
+            }
         } catch (_: SecurityException) {
             onRecognitionEvent(
+                generation,
                 SpeechRecognitionEvent.Error(SpeechRecognitionError.PERMISSION_DENIED),
             )
         } catch (_: Throwable) {
             onRecognitionEvent(
+                generation,
                 SpeechRecognitionEvent.Error(SpeechRecognitionError.SERVICE_UNAVAILABLE),
             )
         }
     }
 
-    private fun onRecognitionEvent(event: SpeechRecognitionEvent) {
+    private fun onRecognitionEvent(
+        generation: Long,
+        event: SpeechRecognitionEvent,
+    ) {
         synchronized(lock) {
-            if (closed || mutableState.value !is SpeechChallengeState.Listening) return
+            if (closed ||
+                generation != attemptGeneration ||
+                mutableState.value !is SpeechChallengeState.Listening
+            ) {
+                return
+            }
             val currentPhrase = requireNotNull(phrase)
             mutableState.value = when (event) {
                 is SpeechRecognitionEvent.Partial -> SpeechChallengeState.Listening(
@@ -217,14 +234,19 @@ internal interface AndroidSpeechRecognizerSession {
     fun destroy()
 }
 
+internal fun interface SpeechMainThreadDispatcher {
+    fun dispatch(task: () -> Unit)
+}
+
 internal class AndroidSpeechRecognitionSource(
     context: Context,
     private val platform: AndroidSpeechRecognizerPlatform = SystemAndroidSpeechRecognizerPlatform,
+    private val mainThreadDispatcher: SpeechMainThreadDispatcher =
+        HandlerSpeechMainThreadDispatcher(),
 ) : SpeechRecognitionSource {
     private val applicationContext = context.applicationContext
     private val lock = Any()
     private var session: AndroidSpeechRecognizerSession? = null
-    private var listener: ((SpeechRecognitionEvent) -> Unit)? = null
     private var closed = false
 
     override fun start(
@@ -233,48 +255,120 @@ internal class AndroidSpeechRecognitionSource(
     ) {
         synchronized(lock) {
             if (closed) return
-            this.listener = listener
         }
 
+        mainThreadDispatcher.dispatch {
+            startOnMainThread(request, listener)
+        }
+    }
+
+    private fun startOnMainThread(
+        request: SpeechRecognitionRequest,
+        listener: (SpeechRecognitionEvent) -> Unit,
+    ) {
+        synchronized(lock) {
+            if (closed) return
+        }
         try {
             if (!platform.isRecognitionAvailable(applicationContext)) {
-                report(SpeechRecognitionError.SERVICE_UNAVAILABLE)
+                report(listener, SpeechRecognitionError.SERVICE_UNAVAILABLE)
                 return
             }
-            val recognizer = synchronized(lock) {
+            val recognizer = prepareRecognizer(listener) ?: return
+            synchronized(lock) {
                 if (closed) return
-                session ?: platform.create(applicationContext).also { created ->
-                    created.setRecognitionListener(PlatformRecognitionListener(::report))
-                    session = created
-                }
             }
             recognizer.startListening(request.toRecognizerIntent())
         } catch (_: SecurityException) {
-            report(SpeechRecognitionError.PERMISSION_DENIED)
+            report(listener, SpeechRecognitionError.PERMISSION_DENIED)
         } catch (_: Throwable) {
-            report(SpeechRecognitionError.SERVICE_UNAVAILABLE)
+            report(listener, SpeechRecognitionError.SERVICE_UNAVAILABLE)
         }
+    }
+
+    private fun prepareRecognizer(
+        listener: (SpeechRecognitionEvent) -> Unit,
+    ): AndroidSpeechRecognizerSession? {
+        val existing = synchronized(lock) {
+            if (closed) return null
+            session
+        }
+        val platformListener = PlatformRecognitionListener { event ->
+            report(listener, event)
+        }
+        if (existing != null) {
+            try {
+                existing.setRecognitionListener(platformListener)
+                return existing
+            } catch (error: Throwable) {
+                synchronized(lock) {
+                    if (session === existing) session = null
+                }
+                runCatching { existing.destroy() }
+                throw error
+            }
+        }
+
+        val created = platform.create(applicationContext)
+        try {
+            created.setRecognitionListener(platformListener)
+        } catch (error: Throwable) {
+            runCatching { created.destroy() }
+            throw error
+        }
+        val published = synchronized(lock) {
+            if (closed) {
+                false
+            } else {
+                session = created
+                true
+            }
+        }
+        if (!published) {
+            runCatching { created.destroy() }
+            return null
+        }
+        return created
     }
 
     override fun close() {
-        val recognizer = synchronized(lock) {
+        synchronized(lock) {
             if (closed) return
             closed = true
-            listener = null
-            session.also { session = null }
         }
-        recognizer?.destroy()
+        mainThreadDispatcher.dispatch {
+            val recognizer = synchronized(lock) {
+                session.also { session = null }
+            }
+            runCatching { recognizer?.destroy() }
+        }
     }
 
-    private fun report(event: SpeechRecognitionEvent) {
-        val target = synchronized(lock) {
-            if (closed) null else listener
-        }
-        target?.invoke(event)
+    private fun report(
+        listener: (SpeechRecognitionEvent) -> Unit,
+        event: SpeechRecognitionEvent,
+    ) {
+        val canReport = synchronized(lock) { !closed }
+        if (canReport) listener(event)
     }
 
-    private fun report(error: SpeechRecognitionError) {
-        report(SpeechRecognitionEvent.Error(error))
+    private fun report(
+        listener: (SpeechRecognitionEvent) -> Unit,
+        error: SpeechRecognitionError,
+    ) {
+        report(listener, SpeechRecognitionEvent.Error(error))
+    }
+}
+
+private class HandlerSpeechMainThreadDispatcher(
+    private val handler: Handler = Handler(Looper.getMainLooper()),
+) : SpeechMainThreadDispatcher {
+    override fun dispatch(task: () -> Unit) {
+        if (Looper.myLooper() == handler.looper) {
+            task()
+        } else {
+            handler.post(task)
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.wakemove.android.challenge
 
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -193,6 +194,37 @@ class SpeechChallengeControllerTest {
     }
 
     @Test
+    fun stale_callback_from_the_previous_attempt_is_ignored_after_retry() {
+        val source = FakeSpeechRecognitionSource()
+        val controller = SpeechChallengeController(source)
+        controller.start("把被子叠好")
+        source.emitFromAttempt(
+            attemptIndex = 0,
+            event = SpeechRecognitionEvent.Final(listOf("把杯子叠好")),
+        )
+
+        controller.retry()
+        source.emitFromAttempt(
+            attemptIndex = 0,
+            event = SpeechRecognitionEvent.Final(listOf("把被子叠好")),
+        )
+
+        assertEquals(
+            SpeechChallengeState.Listening("把被子叠好"),
+            controller.state.value,
+        )
+
+        source.emitFromAttempt(
+            attemptIndex = 1,
+            event = SpeechRecognitionEvent.Final(listOf("把被子叠好")),
+        )
+        assertEquals(
+            SpeechChallengeState.Completed("把被子叠好", "把被子叠好"),
+            controller.state.value,
+        )
+    }
+
+    @Test
     fun close_is_idempotent_releases_recognition_and_ignores_late_results() {
         val source = FakeSpeechRecognitionSource()
         val controller = SpeechChallengeController(source)
@@ -220,8 +252,63 @@ class SpeechChallengeControllerTest {
 }
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35], application = Application::class)
 class AndroidSpeechRecognitionSourceTest {
+    @Test
+    fun platform_operations_are_marshaled_to_the_main_dispatcher() {
+        val dispatcher = QueuedMainThreadDispatcher()
+        val platform = FakeAndroidSpeechRecognizerPlatform().apply {
+            onPlatformCall = {
+                assertTrue("platform call must run on main dispatcher", dispatcher.isRunning)
+            }
+        }
+        val source = AndroidSpeechRecognitionSource(
+            RuntimeEnvironment.getApplication(),
+            platform,
+            dispatcher,
+        )
+
+        source.start(SpeechRecognitionRequest.defaultZhCn()) {}
+
+        assertEquals(0, platform.availabilityCheckCount)
+        assertEquals(0, platform.createCount)
+        dispatcher.runAll()
+        assertEquals(1, platform.availabilityCheckCount)
+        assertEquals(1, platform.createCount)
+        assertEquals(1, platform.session.setListenerCount)
+        assertEquals(1, platform.session.startCount)
+
+        source.close()
+        assertEquals(0, platform.session.destroyCount)
+        dispatcher.runAll()
+        assertEquals(1, platform.session.destroyCount)
+    }
+
+    @Test
+    fun listener_setup_failure_destroys_the_partially_initialized_recognizer() {
+        val dispatcher = QueuedMainThreadDispatcher()
+        val platform = FakeAndroidSpeechRecognizerPlatform().apply {
+            session.setListenerFailure = IllegalStateException("listener setup failed")
+        }
+        val source = AndroidSpeechRecognitionSource(
+            RuntimeEnvironment.getApplication(),
+            platform,
+            dispatcher,
+        )
+        val events = mutableListOf<SpeechRecognitionEvent>()
+
+        source.start(SpeechRecognitionRequest.defaultZhCn(), events::add)
+        dispatcher.runAll()
+
+        assertEquals(
+            listOf(
+                SpeechRecognitionEvent.Error(SpeechRecognitionError.SERVICE_UNAVAILABLE),
+            ),
+            events,
+        )
+        assertEquals(1, platform.session.destroyCount)
+    }
+
     @Test
     fun platform_recognizer_is_created_lazily_and_receives_the_required_intent() {
         val context = RuntimeEnvironment.getApplication()
@@ -268,6 +355,40 @@ class AndroidSpeechRecognitionSourceTest {
                 SpeechRecognitionEvent.Final(listOf("第一候选", "第二候选")),
             ),
             events,
+        )
+    }
+
+    @Test
+    fun platform_callbacks_remain_bound_to_the_attempt_that_registered_them() {
+        val platform = FakeAndroidSpeechRecognizerPlatform()
+        val source = AndroidSpeechRecognitionSource(
+            RuntimeEnvironment.getApplication(),
+            platform,
+        )
+        val firstAttemptEvents = mutableListOf<SpeechRecognitionEvent>()
+        val secondAttemptEvents = mutableListOf<SpeechRecognitionEvent>()
+
+        source.start(SpeechRecognitionRequest.defaultZhCn(), firstAttemptEvents::add)
+        val firstAttemptListener = platform.session.listenerHistory.single()
+        firstAttemptListener.onError(SpeechRecognizer.ERROR_NO_MATCH)
+
+        source.start(SpeechRecognitionRequest.defaultZhCn(), secondAttemptEvents::add)
+        val secondAttemptListener = platform.session.listenerHistory.last()
+        firstAttemptListener.onResults(recognitionResults("迟到的旧结果"))
+
+        assertEquals(
+            listOf(
+                SpeechRecognitionEvent.Error(SpeechRecognitionError.NO_MATCH),
+                SpeechRecognitionEvent.Final(listOf("迟到的旧结果")),
+            ),
+            firstAttemptEvents,
+        )
+        assertTrue(secondAttemptEvents.isEmpty())
+
+        secondAttemptListener.onResults(recognitionResults("当前结果"))
+        assertEquals(
+            listOf(SpeechRecognitionEvent.Final(listOf("当前结果"))),
+            secondAttemptEvents,
         )
     }
 
@@ -344,7 +465,7 @@ class AndroidSpeechRecognitionSourceTest {
 }
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35], application = Application::class)
 class SpeechPhraseProviderTest {
     @Test
     fun loads_the_canonical_shared_phrase_asset() {
@@ -365,7 +486,7 @@ private class FakeSpeechRecognitionSource : SpeechRecognitionSource {
     var lastRequest: SpeechRecognitionRequest? = null
         private set
     var startFailure: Throwable? = null
-    private var listener: ((SpeechRecognitionEvent) -> Unit)? = null
+    private val listeners = mutableListOf<(SpeechRecognitionEvent) -> Unit>()
 
     override fun start(
         request: SpeechRecognitionRequest,
@@ -374,11 +495,18 @@ private class FakeSpeechRecognitionSource : SpeechRecognitionSource {
         startCount += 1
         lastRequest = request
         startFailure?.let { throw it }
-        this.listener = listener
+        listeners += listener
     }
 
     fun emit(event: SpeechRecognitionEvent) {
-        listener?.invoke(event)
+        listeners.lastOrNull()?.invoke(event)
+    }
+
+    fun emitFromAttempt(
+        attemptIndex: Int,
+        event: SpeechRecognitionEvent,
+    ) {
+        listeners[attemptIndex].invoke(event)
     }
 
     override fun close() {
@@ -388,13 +516,25 @@ private class FakeSpeechRecognitionSource : SpeechRecognitionSource {
 
 private class FakeAndroidSpeechRecognizerPlatform : AndroidSpeechRecognizerPlatform {
     var recognitionAvailable = true
+    var availabilityCheckCount = 0
+        private set
     var createCount = 0
         private set
     val session = FakeAndroidSpeechRecognizerSession()
+    var onPlatformCall: () -> Unit = {}
+        set(value) {
+            field = value
+            session.onPlatformCall = value
+        }
 
-    override fun isRecognitionAvailable(context: Context): Boolean = recognitionAvailable
+    override fun isRecognitionAvailable(context: Context): Boolean {
+        onPlatformCall()
+        availabilityCheckCount += 1
+        return recognitionAvailable
+    }
 
     override fun create(context: Context): AndroidSpeechRecognizerSession {
+        onPlatformCall()
         createCount += 1
         return session
     }
@@ -403,23 +543,58 @@ private class FakeAndroidSpeechRecognizerPlatform : AndroidSpeechRecognizerPlatf
 private class FakeAndroidSpeechRecognizerSession : AndroidSpeechRecognizerSession {
     var listener: RecognitionListener? = null
         private set
+    val listenerHistory = mutableListOf<RecognitionListener>()
+    var setListenerCount = 0
+        private set
     var lastIntent: Intent? = null
+        private set
+    var startCount = 0
         private set
     var destroyCount = 0
         private set
     var onStart: () -> Unit = {}
+    var onPlatformCall: () -> Unit = {}
+    var setListenerFailure: Throwable? = null
 
     override fun setRecognitionListener(listener: RecognitionListener) {
+        onPlatformCall()
+        setListenerCount += 1
+        setListenerFailure?.let { throw it }
         this.listener = listener
+        listenerHistory += listener
     }
 
     override fun startListening(intent: Intent) {
+        onPlatformCall()
+        startCount += 1
         lastIntent = intent
         onStart()
     }
 
     override fun destroy() {
+        onPlatformCall()
         destroyCount += 1
+    }
+}
+
+private class QueuedMainThreadDispatcher : SpeechMainThreadDispatcher {
+    private val tasks = ArrayDeque<() -> Unit>()
+    var isRunning = false
+        private set
+
+    override fun dispatch(task: () -> Unit) {
+        tasks.addLast(task)
+    }
+
+    fun runAll() {
+        while (tasks.isNotEmpty()) {
+            isRunning = true
+            try {
+                tasks.removeFirst().invoke()
+            } finally {
+                isRunning = false
+            }
+        }
     }
 }
 
