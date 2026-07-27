@@ -4,6 +4,17 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val generatedSharedPhraseAssets =
+    layout.buildDirectory.dir("generated/assets/sharedPhrases")
+val syncSharedPhrases by tasks.registering(Sync::class) {
+    from(rootProject.layout.projectDirectory.file("../shared/phrases/zh-CN.json")) {
+        into("phrases")
+    }
+    into(generatedSharedPhraseAssets)
+    includeEmptyDirs = false
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
 android {
     namespace = "com.wakemove.android"
     compileSdk = 37
@@ -21,11 +32,25 @@ android {
         compose = true
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
+    sourceSets.named("main") {
+        assets.directories.add(generatedSharedPhraseAssets.get().asFile.absolutePath)
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+}
+
+tasks.matching {
+    it.name.startsWith("merge") && it.name.endsWith("Assets")
+}.configureEach {
+    dependsOn(syncSharedPhrases)
 }
 
 kotlin {
