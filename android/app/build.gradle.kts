@@ -1,4 +1,5 @@
 import javax.inject.Inject
+import java.util.Properties
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileSystemOperations
@@ -40,6 +41,19 @@ val syncSharedPhrases = tasks.register<SyncSharedPhrasesTask>("syncSharedPhrases
     outputDirectory.set(layout.buildDirectory.dir("generated/assets/sharedPhrases"))
 }
 
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.isFile) {
+        keystorePropertiesFile.inputStream().use(::load)
+    }
+}
+val requiredSigningProperties = listOf(
+    "storeFile",
+    "storePassword",
+    "keyAlias",
+    "keyPassword",
+)
+
 android {
     namespace = "com.wakemove.android"
     compileSdk = 37
@@ -66,6 +80,49 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    signingConfigs {
+        create("developmentRelease") {
+            if (keystorePropertiesFile.isFile) {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile").orEmpty())
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("developmentRelease")
+        }
+    }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        if (!keystorePropertiesFile.isFile) {
+            throw GradleException(
+                "Release signing is not configured. Copy keystore.properties.example " +
+                    "to keystore.properties and fill in the local development keystore values.",
+            )
+        }
+
+        val missingProperties = requiredSigningProperties.filter {
+            keystoreProperties.getProperty(it).isNullOrBlank()
+        }
+        if (missingProperties.isNotEmpty()) {
+            throw GradleException(
+                "Release signing properties are missing: ${missingProperties.joinToString()}.",
+            )
+        }
+
+        val configuredKeystore = rootProject.file(keystoreProperties.getProperty("storeFile"))
+        if (!configuredKeystore.isFile) {
+            throw GradleException(
+                "Release keystore does not exist at the path configured by storeFile.",
+            )
+        }
+    }
 }
 
 androidComponents {
