@@ -17,9 +17,9 @@ val WakeMoveText = Color(0xFF292524)
 
 private val WakeMoveColors = lightColorScheme(
     primary = WakeMoveOrange,
-    onPrimary = Color.White,
+    onPrimary = WakeMoveText,
     secondary = WakeMoveCoral,
-    onSecondary = Color.White,
+    onSecondary = WakeMoveText,
     secondaryContainer = Color(0xFFFFE4E6),
     onSecondaryContainer = Color(0xFF9F1239),
     background = WakeMoveBackground,

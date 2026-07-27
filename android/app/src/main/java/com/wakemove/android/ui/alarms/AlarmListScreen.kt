@@ -31,6 +31,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun AlarmListScreen(
     alarms: List<Alarm>,
+    operationState: AlarmOperationUiState = AlarmOperationUiState(),
     onCreateAlarm: () -> Unit,
     onEditAlarm: (Alarm) -> Unit,
     onEnabledChange: (Alarm, Boolean) -> Unit,
@@ -60,14 +61,21 @@ fun AlarmListScreen(
                         fontWeight = FontWeight.Bold,
                     )
                 }
-                TextButton(onClick = onOpenSettings) {
+                TextButton(
+                    onClick = onOpenSettings,
+                    enabled = !operationState.isInFlight,
+                ) {
                     Text("设置")
                 }
             }
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onCreateAlarm,
+                onClick = {
+                    if (!operationState.isInFlight) {
+                        onCreateAlarm()
+                    }
+                },
                 modifier = Modifier.testTag("add_alarm"),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -105,6 +113,15 @@ fun AlarmListScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                operationState.errorMessage?.let { message ->
+                    item {
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
+                }
                 items(items = alarms, key = Alarm::id) { alarm ->
                     AlarmCard(
                         alarm = alarm,
@@ -112,6 +129,7 @@ fun AlarmListScreen(
                         onEnabledChange = { enabled ->
                             onEnabledChange(alarm, enabled)
                         },
+                        enabled = !operationState.isInFlight,
                     )
                 }
             }
@@ -124,9 +142,11 @@ private fun AlarmCard(
     alarm: Alarm,
     onEdit: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
+    enabled: Boolean,
 ) {
     Card(
         onClick = onEdit,
+        enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
             .testTag("alarm_card_${alarm.id}"),
@@ -157,6 +177,7 @@ private fun AlarmCard(
                 Switch(
                     checked = alarm.enabled,
                     onCheckedChange = onEnabledChange,
+                    enabled = enabled,
                     modifier = Modifier.testTag("alarm_enabled_${alarm.id}"),
                 )
             }
@@ -171,7 +192,7 @@ private fun AlarmCard(
             )
             Text(
                 text = "${alarm.challengeType.chineseLabel()} · ${alarm.targetDescription()}",
-                color = MaterialTheme.colorScheme.secondary,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
                 fontWeight = FontWeight.Medium,
             )
         }

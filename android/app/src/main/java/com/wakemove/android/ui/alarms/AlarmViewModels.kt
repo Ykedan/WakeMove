@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.alarms
 
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
@@ -12,8 +14,15 @@ import java.time.LocalTime
 import java.time.format.DateTimeParseException
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class AlarmEditorUiState(
+    val draftId: String = "",
     val alarmId: String? = null,
     val timeText: String = "",
     val label: String = "",
@@ -48,6 +57,7 @@ data class AlarmEditorUiState(
 
     companion object {
         fun fromAlarm(alarm: Alarm, health: HealthSnapshot) = AlarmEditorUiState(
+            draftId = alarm.id,
             alarmId = alarm.id,
             timeText = alarm.time.toString(),
             label = alarm.label,
@@ -59,21 +69,56 @@ data class AlarmEditorUiState(
     }
 }
 
+data class AlarmOperationUiState(
+    val isInFlight: Boolean = false,
+    val errorMessage: String? = null,
+)
+
 class AlarmListViewModel(
     private val repository: AlarmRepository,
     private val scheduler: AlarmScheduler,
+    private val healthProvider: () -> HealthSnapshot,
     private val instantProvider: () -> Instant = Instant::now,
-) {
+) : ViewModel() {
+    private val mutationMutex = Mutex()
+    private val _operationState = MutableStateFlow(AlarmOperationUiState())
+    val operationState: StateFlow<AlarmOperationUiState> = _operationState.asStateFlow()
     val alarms: Flow<List<Alarm>> = repository.observeAlarms()
 
-    suspend fun setEnabled(alarm: Alarm, enabled: Boolean) {
-        repository.upsertAlarm(
-            alarm.copy(
+    fun submitEnabledChange(alarm: Alarm, enabled: Boolean) {
+        if (_operationState.value.isInFlight) return
+        _operationState.value = AlarmOperationUiState(isInFlight = true)
+        viewModelScope.launch {
+            try {
+                setEnabled(alarm, enabled)
+                _operationState.value = AlarmOperationUiState()
+            } catch (error: Exception) {
+                _operationState.value = AlarmOperationUiState(
+                    errorMessage = error.message ?: "操作失败，请重试",
+                )
+            }
+        }
+    }
+
+    suspend fun setEnabled(alarm: Alarm, enabled: Boolean) = mutationMutex.withLock {
+        val previous = repository.getAlarm(alarm.id) ?: alarm
+        if (enabled) {
+            val currentHealth = healthProvider()
+            if (!AlarmEditorUiState.fromAlarm(previous, currentHealth).canSave) {
+                throw AlarmMutationException("健康状态已变化，请重新检查")
+            }
+        }
+        val updated = previous.copy(
                 enabled = enabled,
                 updatedAt = instantProvider(),
-            ),
         )
-        scheduler.rescheduleAll()
+        persistAndReconcile(
+            repository = repository,
+            scheduler = scheduler,
+            previous = previous,
+            updated = updated,
+            instantProvider = instantProvider,
+        )
     }
 }
 
@@ -83,8 +128,16 @@ class AlarmEditorViewModel(
     private val healthProvider: () -> HealthSnapshot,
     private val instantProvider: () -> Instant = Instant::now,
     private val idProvider: () -> String = { UUID.randomUUID().toString() },
-) {
+) : ViewModel() {
+    private val saveMutex = Mutex()
+    private val _operationState = MutableStateFlow(AlarmOperationUiState())
+    val operationState: StateFlow<AlarmOperationUiState> = _operationState.asStateFlow()
+    private var pendingCreateId: String? = null
+    private var completedFingerprint: AlarmEditorUiState? = null
+    private var completedAlarm: Alarm? = null
+
     fun newState(): AlarmEditorUiState = AlarmEditorUiState(
+        draftId = idProvider(),
         health = healthProvider(),
     )
 
@@ -93,12 +146,56 @@ class AlarmEditorViewModel(
             AlarmEditorUiState.fromAlarm(alarm, healthProvider())
         }
 
-    suspend fun save(state: AlarmEditorUiState): Alarm {
-        require(state.canSave) { "Alarm editor state must be valid before saving" }
+    fun submit(state: AlarmEditorUiState, onSuccess: (Alarm) -> Unit) {
+        if (_operationState.value.isInFlight) return
+        _operationState.value = AlarmOperationUiState(isInFlight = true)
+        viewModelScope.launch {
+            try {
+                val saved = save(state)
+                _operationState.value = AlarmOperationUiState()
+                onSuccess(saved)
+            } catch (error: Exception) {
+                _operationState.value = AlarmOperationUiState(
+                    errorMessage = error.message ?: "保存失败，请重试",
+                )
+            }
+        }
+    }
+
+    fun submitDelete(alarmId: String, onSuccess: () -> Unit) {
+        if (_operationState.value.isInFlight) return
+        _operationState.value = AlarmOperationUiState(isInFlight = true)
+        viewModelScope.launch {
+            try {
+                delete(alarmId)
+                _operationState.value = AlarmOperationUiState()
+                onSuccess()
+            } catch (error: Exception) {
+                _operationState.value = AlarmOperationUiState(
+                    errorMessage = error.message ?: "删除失败，请重试",
+                )
+            }
+        }
+    }
+
+    suspend fun save(state: AlarmEditorUiState): Alarm = saveMutex.withLock {
+        if (completedFingerprint == state) {
+            return@withLock checkNotNull(completedAlarm)
+        }
+        val currentState = state.copy(health = healthProvider())
+        if (!currentState.canSave) {
+            throw AlarmMutationException(
+                currentState.healthMessage ?: "闹钟设置无效",
+            )
+        }
         val now = instantProvider()
         val existing = state.alarmId?.let { repository.getAlarm(it) }
         val alarm = Alarm(
-            id = existing?.id ?: idProvider(),
+            id = existing?.id ?: state.draftId.ifBlank {
+                pendingCreateId ?: idProvider().also {
+                    pendingCreateId = it
+                }
+            },
             time = checkNotNull(state.parsedTime),
             label = state.label.trim(),
             enabled = existing?.enabled ?: true,
@@ -116,8 +213,15 @@ class AlarmEditorViewModel(
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
         )
-        repository.upsertAlarm(alarm)
-        scheduler.rescheduleAll()
+        persistAndReconcile(
+            repository = repository,
+            scheduler = scheduler,
+            previous = existing,
+            updated = alarm,
+            instantProvider = instantProvider,
+        )
+        completedFingerprint = state
+        completedAlarm = alarm
         return alarm
     }
 
@@ -131,5 +235,49 @@ class AlarmEditorViewModel(
         private const val DEFAULT_SOUND_ID = "default"
         private const val DEFAULT_SNOOZE_MINUTES = 5
         private const val DEFAULT_SNOOZE_LIMIT = 3
+    }
+}
+
+class AlarmMutationException(
+    message: String,
+    cause: Throwable? = null,
+) : IllegalStateException(message, cause)
+
+private suspend fun persistAndReconcile(
+    repository: AlarmRepository,
+    scheduler: AlarmScheduler,
+    previous: Alarm?,
+    updated: Alarm,
+    instantProvider: () -> Instant,
+) {
+    repository.upsertAlarm(updated)
+    try {
+        scheduler.rescheduleAll()
+    } catch (schedulingError: Exception) {
+        if (previous == null) {
+            repository.deleteAlarm(updated.id)
+            scheduler.cancel(updated.id)
+        } else {
+            repository.upsertAlarm(previous)
+        }
+        try {
+            scheduler.rescheduleAll()
+        } catch (reconciliationError: Exception) {
+            val visible = previous ?: repository.getAlarm(updated.id)
+            if (visible?.enabled == true) {
+                repository.upsertAlarm(
+                    visible.copy(
+                        enabled = false,
+                        updatedAt = instantProvider(),
+                    ),
+                )
+            }
+            scheduler.cancel(updated.id)
+            schedulingError.addSuppressed(reconciliationError)
+        }
+        throw AlarmMutationException(
+            "保存失败，闹钟状态已恢复",
+            schedulingError,
+        )
     }
 }

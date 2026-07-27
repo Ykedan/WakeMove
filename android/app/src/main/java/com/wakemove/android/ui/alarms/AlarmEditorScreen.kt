@@ -3,11 +3,13 @@ package com.wakemove.android.ui.alarms
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +19,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +51,7 @@ import java.time.DayOfWeek
 @Composable
 fun AlarmEditorScreen(
     state: AlarmEditorUiState,
+    operationState: AlarmOperationUiState = AlarmOperationUiState(),
     onTimeChange: (String) -> Unit,
     onDayToggle: (DayOfWeek) -> Unit,
     onChallengeSelected: (ChallengeType) -> Unit,
@@ -55,6 +59,7 @@ fun AlarmEditorScreen(
     onSave: () -> Unit,
     onDelete: () -> Unit,
     onBack: () -> Unit,
+    navigationEnabled: Boolean = true,
     onLabelChange: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -69,7 +74,10 @@ fun AlarmEditorScreen(
                     Text(if (state.alarmId == null) "新建闹钟" else "编辑闹钟")
                 },
                 navigationIcon = {
-                    TextButton(onClick = onBack) {
+                    TextButton(
+                        onClick = onBack,
+                        enabled = navigationEnabled,
+                    ) {
                         Text("返回")
                     }
                 },
@@ -131,26 +139,10 @@ fun AlarmEditorScreen(
             }
 
             EditorSection(title = "重复") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    DayOfWeek.entries.forEach { day ->
-                        val selected = day in state.selectedDays
-                        FilterChip(
-                            selected = selected,
-                            onClick = { onDayToggle(day) },
-                            label = { Text(day.shortChineseLabel()) },
-                            modifier = Modifier
-                                .width(43.dp)
-                                .testTag("weekday_${day.name}")
-                                .semantics {
-                                    this.selected = selected
-                                    role = Role.Checkbox
-                                },
-                        )
-                    }
-                }
+                WeekdayFlow(
+                    state = state,
+                    onDayToggle = onDayToggle,
+                )
                 Text(
                     text = if (state.selectedDays.isEmpty()) "仅响一次" else "按所选日期重复",
                     style = MaterialTheme.typography.bodySmall,
@@ -194,21 +186,42 @@ fun AlarmEditorScreen(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
+            operationState.errorMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
 
             Button(
                 onClick = onSave,
-                enabled = state.canSave,
+                enabled = state.canSave && !operationState.isInFlight,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .testTag("save_alarm"),
             ) {
-                Text("保存闹钟")
+                if (operationState.isInFlight) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .height(24.dp)
+                            .width(24.dp)
+                            .testTag("submission_progress"),
+                        strokeWidth = 3.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text("保存中…")
+                } else {
+                    Text("保存闹钟")
+                }
             }
 
             if (state.alarmId != null) {
                 OutlinedButton(
                     onClick = { showDeleteConfirmation = true },
+                    enabled = !operationState.isInFlight,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
@@ -242,6 +255,36 @@ fun AlarmEditorScreen(
                 }
             },
         )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WeekdayFlow(
+    state: AlarmEditorUiState,
+    onDayToggle: (DayOfWeek) -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        DayOfWeek.entries.forEach { day ->
+            val selected = day in state.selectedDays
+            FilterChip(
+                selected = selected,
+                onClick = { onDayToggle(day) },
+                label = { Text(day.shortChineseLabel()) },
+                modifier = Modifier
+                    .width(48.dp)
+                    .heightIn(min = 48.dp)
+                    .testTag("weekday_${day.name}")
+                    .semantics {
+                        this.selected = selected
+                        role = Role.Checkbox
+                    },
+            )
+        }
     }
 }
 

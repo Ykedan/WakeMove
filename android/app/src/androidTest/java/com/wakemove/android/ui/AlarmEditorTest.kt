@@ -8,7 +8,6 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -36,6 +35,8 @@ import com.wakemove.android.ui.theme.WakeMoveTheme
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalTime
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
@@ -155,7 +156,7 @@ class AlarmEditorTest {
             }
         }
 
-        composeRule.onNodeWithTag("target_count").assertIsDisplayed()
+        composeRule.onNodeWithTag("target_count").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("challenge_VOICE_PHRASE").performClick()
         composeRule.onNodeWithTag("challenge_VOICE_PHRASE").assertIsSelected()
         composeRule.onNodeWithTag("target_count").assertDoesNotExist()
@@ -235,7 +236,7 @@ class AlarmEditorTest {
             instantProvider = { Instant.parse("2026-07-27T01:00:00Z") },
             idProvider = { "new-alarm" },
         )
-        val list = AlarmListViewModel(repository, scheduler)
+        val list = AlarmListViewModel(repository, scheduler, { readyHealth })
 
         val created = editor.save(
             AlarmEditorUiState(
@@ -269,6 +270,145 @@ class AlarmEditorTest {
         assertNull(repository.getAlarm(updated.id))
         assertEquals(listOf(updated.id), scheduler.cancelledIds)
         assertEquals(5, scheduler.rescheduleCount)
+    }
+
+    @Test
+    fun saveRechecksHealthImmediatelyBeforeMutation() = runBlocking {
+        val repository = FakeAlarmRepository()
+        val scheduler = FakeAlarmScheduler()
+        val blockedHealth = readyHealth.copy(exactAlarm = HealthStatus.ACTION_REQUIRED)
+        val editor = AlarmEditorViewModel(
+            repository = repository,
+            scheduler = scheduler,
+            healthProvider = { blockedHealth },
+            idProvider = { "health-blocked" },
+        )
+
+        val result = runCatching {
+            editor.save(
+                AlarmEditorUiState(
+                    timeText = "07:30",
+                    health = readyHealth,
+                ),
+            )
+        }
+
+        assertTrue(result.isFailure)
+        assertNull(repository.getAlarm("health-blocked"))
+        assertEquals(0, scheduler.rescheduleCount)
+    }
+
+    @Test
+    fun failedCreateSchedulingRemovesPersistedAlarm() = runBlocking {
+        val repository = FakeAlarmRepository()
+        val scheduler = FakeAlarmScheduler(failuresRemaining = 1)
+        val editor = AlarmEditorViewModel(
+            repository = repository,
+            scheduler = scheduler,
+            healthProvider = { readyHealth },
+            idProvider = { "failed-create" },
+        )
+
+        val result = runCatching {
+            editor.save(
+                AlarmEditorUiState(
+                    timeText = "07:30",
+                    health = readyHealth,
+                ),
+            )
+        }
+
+        assertTrue(result.isFailure)
+        assertNull(repository.getAlarm("failed-create"))
+        assertEquals(listOf("failed-create"), scheduler.cancelledIds)
+    }
+
+    @Test
+    fun failedUpdateSchedulingRestoresPreviousAlarm() = runBlocking {
+        val repository = FakeAlarmRepository()
+        val previous = alarm()
+        repository.upsertAlarm(previous)
+        val scheduler = FakeAlarmScheduler(failuresRemaining = 1)
+        val editor = AlarmEditorViewModel(
+            repository = repository,
+            scheduler = scheduler,
+            healthProvider = { readyHealth },
+        )
+
+        val result = runCatching {
+            editor.save(
+                AlarmEditorUiState.fromAlarm(previous, readyHealth)
+                    .copy(timeText = "09:45"),
+            )
+        }
+
+        assertTrue(result.isFailure)
+        assertEquals(previous, repository.getAlarm(previous.id))
+    }
+
+    @Test
+    fun failedEnableAndDisableRestorePreviousVisibleState() = runBlocking {
+        val repository = FakeAlarmRepository()
+        val scheduler = FakeAlarmScheduler()
+        val disabled = alarm().copy(enabled = false)
+        repository.upsertAlarm(disabled)
+        val list = AlarmListViewModel(repository, scheduler, { readyHealth })
+
+        scheduler.failuresRemaining = 1
+        assertTrue(runCatching { list.setEnabled(disabled, true) }.isFailure)
+        assertFalse(checkNotNull(repository.getAlarm(disabled.id)).enabled)
+
+        val enabled = disabled.copy(enabled = true)
+        repository.upsertAlarm(enabled)
+        scheduler.failuresRemaining = 1
+        assertTrue(runCatching { list.setEnabled(enabled, false) }.isFailure)
+        assertTrue(checkNotNull(repository.getAlarm(enabled.id)).enabled)
+    }
+
+    @Test
+    fun failedRollbackReconciliationForcesAlarmDisabledAndCancelled() = runBlocking {
+        val repository = FakeAlarmRepository()
+        val enabled = alarm()
+        repository.upsertAlarm(enabled)
+        val scheduler = FakeAlarmScheduler(failuresRemaining = 2)
+        val list = AlarmListViewModel(repository, scheduler, { readyHealth })
+
+        val result = runCatching { list.setEnabled(enabled, false) }
+
+        assertTrue(result.isFailure)
+        assertFalse(checkNotNull(repository.getAlarm(enabled.id)).enabled)
+        assertEquals(listOf(enabled.id), scheduler.cancelledIds)
+    }
+
+    @Test
+    fun concurrentCreateSubmissionMutatesAndSchedulesOnlyOnce() = runBlocking {
+        val repository = FakeAlarmRepository()
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val scheduler = FakeAlarmScheduler(
+            onReschedule = {
+                entered.complete(Unit)
+                release.await()
+            },
+        )
+        var nextId = 0
+        val editor = AlarmEditorViewModel(
+            repository = repository,
+            scheduler = scheduler,
+            healthProvider = { readyHealth },
+            idProvider = { "create-${++nextId}" },
+        )
+        val state = AlarmEditorUiState(timeText = "07:30", health = readyHealth)
+
+        val first = async { editor.save(state) }
+        entered.await()
+        val second = async { editor.save(state) }
+        release.complete(Unit)
+        first.await()
+        second.await()
+
+        assertEquals(1, repository.alarmCount)
+        assertEquals(1, scheduler.rescheduleCount)
     }
 
     private class FakeAlarmRepository : AlarmRepository {
@@ -306,9 +446,15 @@ class AlarmEditorTest {
         override suspend fun appendEvent(event: AlarmEvent) = Unit
         override suspend fun recentEvents(limit: Int): List<AlarmEvent> = emptyList()
         override suspend fun clearHistory() = Unit
+
+        val alarmCount: Int
+            get() = alarms.size
     }
 
-    private class FakeAlarmScheduler : AlarmScheduler {
+    private class FakeAlarmScheduler(
+        var failuresRemaining: Int = 0,
+        private val onReschedule: suspend () -> Unit = {},
+    ) : AlarmScheduler {
         var rescheduleCount = 0
         val cancelledIds = mutableListOf<String>()
 
@@ -320,6 +466,11 @@ class AlarmEditorTest {
 
         override suspend fun rescheduleAll() {
             rescheduleCount += 1
+            onReschedule()
+            if (failuresRemaining > 0) {
+                failuresRemaining -= 1
+                throw IllegalStateException("scheduler failure")
+            }
         }
     }
 
