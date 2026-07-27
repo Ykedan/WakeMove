@@ -20,15 +20,23 @@ import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
+import com.google.common.util.concurrent.ListenableFuture
 import java.nio.ByteBuffer
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+
+interface PoseLandmarkerPlatform {
+    fun newAnalysisExecutor(): ExecutorService
+
+    fun cameraProviderFuture(context: Context): ListenableFuture<ProcessCameraProvider>
+}
 
 class PoseLandmarkerAdapter(
     context: Context,
     private val lifecycleOwner: LifecycleOwner,
     private val previewView: PreviewView,
     private val cameraSelector: CameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA,
+    private val platform: PoseLandmarkerPlatform = AndroidPoseLandmarkerPlatform,
 ) : PoseLandmarkSource {
     private val applicationContext = context.applicationContext
     private val mainExecutor = ContextCompat.getMainExecutor(applicationContext)
@@ -50,27 +58,53 @@ class PoseLandmarkerAdapter(
     private var imageAnalysis: ImageAnalysis? = null
 
     override fun start(listener: (PoseObservation) -> Unit) {
-        val executor = synchronized(lock) {
+        synchronized(lock) {
             check(!closed) { "PoseLandmarkerAdapter is closed" }
             check(!started) { "PoseLandmarkerAdapter is already started" }
             started = true
             this.listener = listener
-            Executors.newSingleThreadExecutor().also { analysisExecutor = it }
         }
 
-        executor.execute(::createPoseLandmarker)
-        val providerFuture = ProcessCameraProvider.getInstance(applicationContext)
-        providerFuture.addListener(
-            {
-                if (closed) return@addListener
-                val provider = runAdapterOperation(::reportUnavailable) {
-                    providerFuture.get()
-                } ?: return@addListener
-                cameraProvider = provider
-                bindCamera(provider, executor)
-            },
-            mainExecutor,
-        )
+        val executor = runAdapterOperation(::reportUnavailable, platform::newAnalysisExecutor)
+            ?: return
+        val published = synchronized(lock) {
+            if (closed) {
+                false
+            } else {
+                analysisExecutor = executor
+                true
+            }
+        }
+        if (!published) {
+            executor.shutdown()
+            return
+        }
+
+        val submitted = runAdapterOperation(::reportUnavailable) {
+            executor.execute(::createPoseLandmarker)
+            true
+        } ?: false
+        if (!submitted) {
+            releaseFailedExecutor(executor)
+            return
+        }
+
+        val providerFuture = runAdapterOperation(::reportUnavailable) {
+            platform.cameraProviderFuture(applicationContext)
+        } ?: return
+        runAdapterOperation(::reportUnavailable) {
+            providerFuture.addListener(
+                {
+                    if (closed) return@addListener
+                    val provider = runAdapterOperation(::reportUnavailable) {
+                        providerFuture.get()
+                    } ?: return@addListener
+                    cameraProvider = provider
+                    bindCamera(provider, executor)
+                },
+                mainExecutor,
+            )
+        }
     }
 
     override fun close() {
@@ -228,6 +262,18 @@ class PoseLandmarkerAdapter(
         listener?.invoke(PoseObservation.NoPerson)
     }
 
+    private fun releaseFailedExecutor(executor: ExecutorService) {
+        val owned = synchronized(lock) {
+            if (analysisExecutor === executor) {
+                analysisExecutor = null
+                true
+            } else {
+                false
+            }
+        }
+        if (owned) executor.shutdown()
+    }
+
     private data class AdapterResources(
         val provider: ProcessCameraProvider?,
         val preview: Preview?,
@@ -290,3 +336,11 @@ private fun ByteBuffer.rgbLuminance(offset: Int): Byte {
 }
 
 private const val LOW_LIGHT_LUMA_THRESHOLD = 50
+
+private object AndroidPoseLandmarkerPlatform : PoseLandmarkerPlatform {
+    override fun newAnalysisExecutor(): ExecutorService = Executors.newSingleThreadExecutor()
+
+    override fun cameraProviderFuture(
+        context: Context,
+    ): ListenableFuture<ProcessCameraProvider> = ProcessCameraProvider.getInstance(context)
+}
