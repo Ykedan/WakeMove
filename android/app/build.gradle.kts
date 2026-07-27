@@ -1,18 +1,43 @@
+import javax.inject.Inject
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
 
-val generatedSharedPhraseAssets =
-    layout.buildDirectory.dir("generated/assets/sharedPhrases")
-val syncSharedPhrases by tasks.registering(Sync::class) {
-    from(rootProject.layout.projectDirectory.file("../shared/phrases/zh-CN.json")) {
-        into("phrases")
+abstract class SyncSharedPhrasesTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceFile: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @get:Inject
+    abstract val fileSystemOperations: FileSystemOperations
+
+    @TaskAction
+    fun sync() {
+        fileSystemOperations.sync {
+            from(sourceFile)
+            into(outputDirectory.dir("phrases"))
+        }
     }
-    into(generatedSharedPhraseAssets)
-    includeEmptyDirs = false
-    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
+val syncSharedPhrases = tasks.register<SyncSharedPhrasesTask>("syncSharedPhrases") {
+    sourceFile.set(rootProject.layout.projectDirectory.file("../shared/phrases/zh-CN.json"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/assets/sharedPhrases"))
 }
 
 android {
@@ -36,10 +61,6 @@ android {
         unitTests.isIncludeAndroidResources = true
     }
 
-    sourceSets.named("main") {
-        assets.directories.add(generatedSharedPhraseAssets.get().asFile.absolutePath)
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -47,10 +68,13 @@ android {
 
 }
 
-tasks.matching {
-    it.name.startsWith("merge") && it.name.endsWith("Assets")
-}.configureEach {
-    dependsOn(syncSharedPhrases)
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            syncSharedPhrases,
+            SyncSharedPhrasesTask::outputDirectory,
+        )
+    }
 }
 
 kotlin {
