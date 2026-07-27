@@ -22,6 +22,8 @@ fun launchHealthRepair(context: Context, issue: HealthIssue) {
         HealthIssue.CAMERA,
         HealthIssue.MICROPHONE,
         -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
+        HealthIssue.BATTERY_OPTIMIZATION ->
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
     }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     runCatching { context.startActivity(intent) }
         .onFailure {

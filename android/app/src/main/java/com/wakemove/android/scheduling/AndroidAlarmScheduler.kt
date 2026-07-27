@@ -14,6 +14,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.first
 
 class AndroidAlarmScheduler(
@@ -24,32 +25,48 @@ class AndroidAlarmScheduler(
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
 ) : AlarmScheduler {
     private val appContext = context.applicationContext
+    private val registeredAlarms = ConcurrentHashMap<String, Instant>()
+    @Volatile
+    private var lastResult = SchedulingResult.NEVER
 
     override fun schedule(alarm: Alarm, at: Instant) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            !alarmManager.canScheduleExactAlarms()
-        ) {
-            throw ExactAlarmPermissionRequiredException()
-        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                !alarmManager.canScheduleExactAlarms()
+            ) {
+                throw ExactAlarmPermissionRequiredException()
+            }
 
-        val operation = checkNotNull(
-            alarmPendingIntent(alarm.id, PendingIntent.FLAG_UPDATE_CURRENT),
-        )
-        val showIntent = PendingIntent.getActivity(
-            appContext,
-            requestCodeForAlarm(alarm.id),
-            Intent(appContext, MainActivity::class.java)
-                .setData(alarmUri(alarm.id)),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val alarmClock = AlarmManager.AlarmClockInfo(at.toEpochMilli(), showIntent)
-        alarmManager.setAlarmClock(alarmClock, operation)
+            val operation = checkNotNull(
+                alarmPendingIntent(alarm.id, PendingIntent.FLAG_UPDATE_CURRENT),
+            )
+            val showIntent = PendingIntent.getActivity(
+                appContext,
+                requestCodeForAlarm(alarm.id),
+                Intent(appContext, MainActivity::class.java)
+                    .setData(alarmUri(alarm.id)),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val alarmClock = AlarmManager.AlarmClockInfo(at.toEpochMilli(), showIntent)
+            alarmManager.setAlarmClock(alarmClock, operation)
+            registeredAlarms[alarm.id] = at
+            lastResult = SchedulingResult.SUCCESS
+        } catch (error: RuntimeException) {
+            registeredAlarms.remove(alarm.id)
+            lastResult = SchedulingResult.FAILURE
+            throw error
+        }
     }
 
     override fun cancel(alarmId: String) {
-        alarmManager.cancel(
-            alarmPendingIntent(alarmId, PendingIntent.FLAG_NO_CREATE) ?: return,
-        )
+        try {
+            alarmPendingIntent(alarmId, PendingIntent.FLAG_NO_CREATE)?.let(alarmManager::cancel)
+            registeredAlarms.remove(alarmId)
+            lastResult = SchedulingResult.SUCCESS
+        } catch (error: RuntimeException) {
+            lastResult = SchedulingResult.FAILURE
+            throw error
+        }
     }
 
     override suspend fun rescheduleAll() {
@@ -66,6 +83,11 @@ class AndroidAlarmScheduler(
             }
         }
     }
+
+    override fun healthSnapshot() = SchedulerHealthSnapshot(
+        lastResult = lastResult,
+        nextRegisteredAt = registeredAlarms.values.minOrNull(),
+    )
 
     private fun alarmPendingIntent(alarmId: String, lookupFlag: Int): PendingIntent? =
         PendingIntent.getBroadcast(

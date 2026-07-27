@@ -33,6 +33,7 @@ fun CameraChallengeScreen(
     challengeType: ChallengeType,
     progress: ChallengeProgress,
     landmarks: List<Pair<Float, Float>>,
+    remainingSnoozes: Int,
     onUseSpeechFallback: () -> Unit,
     modifier: Modifier = Modifier,
     cameraPreview: @Composable () -> Unit = {},
@@ -42,7 +43,7 @@ fun CameraChallengeScreen(
             .fillMaxSize()
             .background(Color(0xFF111827)),
     ) {
-        AlarmChallengeHeader(alarmTime, alarmLabel)
+        AlarmChallengeHeader(alarmTime, alarmLabel, remainingSnoozes)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -92,17 +93,28 @@ fun CameraChallengeScreen(
                     fontWeight = FontWeight.Bold,
                 )
             }
-            if (progress.fallbackAvailable) {
-                Button(onClick = onUseSpeechFallback) {
-                    Text("改用语音挑战")
-                }
+            Button(
+                onClick = onUseSpeechFallback,
+                enabled = progress.fallbackAvailable,
+            ) {
+                Text(
+                    if (progress.fallbackAvailable) {
+                        "改用语音挑战"
+                    } else {
+                        "60 秒后可改用语音"
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-internal fun AlarmChallengeHeader(alarmTime: String, alarmLabel: String) {
+internal fun AlarmChallengeHeader(
+    alarmTime: String,
+    alarmLabel: String,
+    remainingSnoozes: Int,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -110,17 +122,23 @@ internal fun AlarmChallengeHeader(alarmTime: String, alarmLabel: String) {
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            alarmTime,
-            color = Color.White,
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            alarmLabel,
-            color = Color(0xFFD1D5DB),
-            modifier = Modifier.padding(start = 16.dp),
-        )
+        Column(Modifier.weight(1f)) {
+            Text("正在响铃", color = Color(0xFFFDBA74))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    alarmTime,
+                    color = Color.White,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    alarmLabel,
+                    color = Color(0xFFD1D5DB),
+                    modifier = Modifier.padding(start = 16.dp),
+                )
+            }
+        }
+        Text("剩余贪睡 $remainingSnoozes 次", color = Color(0xFFD1D5DB))
     }
 }
 

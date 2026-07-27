@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.content.ContextCompat
 
 enum class HealthStatus {
@@ -20,6 +21,7 @@ data class HealthSnapshot(
     val fullScreenIntent: HealthStatus,
     val camera: HealthStatus,
     val microphone: HealthStatus,
+    val batteryOptimization: HealthStatus = HealthStatus.READY,
 ) {
     val canScheduleAlarms: Boolean
         get() = exactAlarm == HealthStatus.READY &&
@@ -37,6 +39,10 @@ class AndroidHealthService(
         Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
             notificationManager?.canUseFullScreenIntent() == true
     },
+    private val batteryOptimizationIgnored: () -> Boolean = {
+        context.getSystemService(PowerManager::class.java)
+            ?.isIgnoringBatteryOptimizations(context.packageName) == true
+    },
 ) {
     private val appContext = context.applicationContext
     private val packageManager = appContext.packageManager
@@ -53,6 +59,11 @@ class AndroidHealthService(
             feature = PackageManager.FEATURE_MICROPHONE,
             permission = Manifest.permission.RECORD_AUDIO,
         ),
+        batteryOptimization = if (batteryOptimizationIgnored()) {
+            HealthStatus.READY
+        } else {
+            HealthStatus.ACTION_REQUIRED
+        },
     )
 
     private fun exactAlarmStatus(): HealthStatus {

@@ -26,6 +26,7 @@ fun SpeechChallengeScreen(
     alarmTime: String,
     alarmLabel: String,
     state: SpeechChallengeState,
+    remainingSnoozes: Int,
     onRetry: () -> Unit,
     onUseCameraFallback: () -> Unit,
     modifier: Modifier = Modifier,
@@ -37,13 +38,15 @@ fun SpeechChallengeScreen(
             .background(Color(0xFF111827)),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AlarmChallengeHeader(alarmTime, alarmLabel)
+        AlarmChallengeHeader(alarmTime, alarmLabel, remainingSnoozes)
         Spacer(Modifier.weight(1f))
+        Text("目标：完整说出短句", color = Color.White)
         Text(
             state.statusText(),
             color = Color(0xFFFDBA74),
             modifier = Modifier.semantics { contentDescription = "麦克风监听状态" },
         )
+        Text("进度：${state.statusText()}", color = Color(0xFFD1D5DB))
         Text(
             phrase,
             color = Color.White,
@@ -65,15 +68,16 @@ fun SpeechChallengeScreen(
             ) {
                 Text("重新聆听")
             }
-            OutlinedButton(
-                onClick = onUseCameraFallback,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-                    .height(52.dp),
-            ) {
-                Text("改用动作挑战", color = Color.White)
-            }
+        }
+        OutlinedButton(
+            onClick = onUseCameraFallback,
+            enabled = state.isRetryableUi(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .height(52.dp),
+        ) {
+            Text("改用动作挑战")
         }
     }
 }

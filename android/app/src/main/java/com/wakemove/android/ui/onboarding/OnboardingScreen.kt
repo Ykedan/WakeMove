@@ -26,7 +26,7 @@ fun OnboardingScreen(
             modifier = Modifier.padding(top = 12.dp),
         )
         Text(
-            "闹钟会按需使用通知、全屏显示、相机或麦克风。动作识别在本机完成，WakeMove 不保存相机画面或麦克风录音。",
+            "本页只是说明，不代表已经授权。只有你明确开始动作或语音挑战时，WakeMove 才会先说明用途，再请求相机或麦克风权限。",
             modifier = Modifier.padding(top = 28.dp),
         )
         Text(
@@ -37,6 +37,6 @@ fun OnboardingScreen(
         Button(
             onClick = onComplete,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("开始使用") }
+        ) { Text("继续") }
     }
 }

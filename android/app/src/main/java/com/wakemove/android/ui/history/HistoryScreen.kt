@@ -27,6 +27,7 @@ fun HistoryScreen(
     events: List<AlarmEvent>,
     onClearHistory: () -> Unit,
     modifier: Modifier = Modifier,
+    zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     Column(modifier.fillMaxSize().padding(20.dp)) {
         Row(
@@ -47,8 +48,21 @@ fun HistoryScreen(
                         Column(Modifier.padding(18.dp)) {
                             Text(event.result.label(), fontWeight = FontWeight.Bold)
                             Text(
-                                event.scheduledAt.atZone(ZoneId.systemDefault())
-                                    .format(DateTimeFormatter.ofPattern("MM-dd HH:mm")),
+                                "计划时间：${
+                                    event.scheduledAt.localFormat(zoneId, includeSeconds = false)
+                                }",
+                            )
+                            Text(
+                                "实际响铃：${
+                                    event.startedAt?.localFormat(zoneId, includeSeconds = true)
+                                        ?: "未开始"
+                                }",
+                            )
+                            Text(
+                                "完成时间：${
+                                    event.finishedAt?.localFormat(zoneId, includeSeconds = true)
+                                        ?: "处理中"
+                                }",
                             )
                             Text(
                                 "${event.challengeType.label()} · 贪睡 ${event.snoozeCount} 次",
@@ -60,6 +74,11 @@ fun HistoryScreen(
         }
     }
 }
+
+private fun java.time.Instant.localFormat(zoneId: ZoneId, includeSeconds: Boolean): String =
+    atZone(zoneId).format(
+        DateTimeFormatter.ofPattern(if (includeSeconds) "MM-dd HH:mm:ss" else "MM-dd HH:mm"),
+    )
 
 private fun AlarmEventResult.label(): String = when (this) {
     AlarmEventResult.COMPLETED -> "挑战完成"

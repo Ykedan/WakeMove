@@ -46,6 +46,7 @@ fun RingingScreen(
     onStartChallenge: () -> Unit,
     onEmergencyBypass: () -> Unit,
     modifier: Modifier = Modifier,
+    onRepairHealth: () -> Unit = {},
 ) {
     val alarm = state.alarm ?: return
     val session = state.session ?: return
@@ -116,6 +117,16 @@ fun RingingScreen(
                 color = Color(0xFFFCA5A5),
                 fontSize = 14.sp,
             )
+            OutlinedButton(
+                onClick = onRepairHealth,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .testTag("repair_ringing_sensors"),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            ) {
+                Text("修复相机和麦克风权限")
+            }
             EmergencyHoldButton(onEmergencyBypass)
         }
     }
@@ -157,14 +168,19 @@ private fun EmergencyHoldButton(
                 }
                 .pointerInput(onComplete) {
                     awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false)
+                        val initialPointer = awaitFirstDown(requireUnconsumed = false).id
                         holding = true
-                        var pressed: Boolean
-                        do {
-                            val event = awaitPointerEvent()
-                            pressed = event.changes.any { it.pressed }
-                        } while (pressed)
-                        holding = false
+                        try {
+                            var initialStillPressed: Boolean
+                            do {
+                                val event = awaitPointerEvent()
+                                val initialChange = event.changes
+                                    .firstOrNull { it.id == initialPointer }
+                                initialStillPressed = initialChange?.pressed == true
+                            } while (initialStillPressed)
+                        } finally {
+                            holding = false
+                        }
                     }
                 },
             horizontalArrangement = Arrangement.Center,

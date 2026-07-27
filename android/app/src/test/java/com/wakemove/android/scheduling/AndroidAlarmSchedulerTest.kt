@@ -67,6 +67,13 @@ class AndroidAlarmSchedulerTest {
             AlarmReceiver::class.java.name,
             operation.savedIntent.component?.className,
         )
+        assertEquals(
+            SchedulerHealthSnapshot(
+                lastResult = SchedulingResult.SUCCESS,
+                nextRegisteredAt = trigger,
+            ),
+            scheduler.healthSnapshot(),
+        )
     }
 
     @Test
@@ -167,6 +174,7 @@ class AndroidAlarmSchedulerTest {
             scheduler.schedule(alarm, now.plusSeconds(600))
         }
         assertTrue(shadowOf(alarmManager).scheduledAlarms.isEmpty())
+        assertEquals(SchedulingResult.FAILURE, scheduler.healthSnapshot().lastResult)
     }
 
     @Test

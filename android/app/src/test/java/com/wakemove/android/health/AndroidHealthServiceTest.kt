@@ -44,6 +44,7 @@ class AndroidHealthServiceTest {
         val snapshot = AndroidHealthService(
             context = context,
             fullScreenIntentAllowed = { true },
+            batteryOptimizationIgnored = { true },
         ).snapshot()
 
         assertEquals(HealthStatus.READY, snapshot.exactAlarm)
@@ -51,6 +52,7 @@ class AndroidHealthServiceTest {
         assertEquals(HealthStatus.READY, snapshot.fullScreenIntent)
         assertEquals(HealthStatus.READY, snapshot.camera)
         assertEquals(HealthStatus.READY, snapshot.microphone)
+        assertEquals(HealthStatus.READY, snapshot.batteryOptimization)
         assertTrue(snapshot.canScheduleAlarms)
     }
 
@@ -67,6 +69,7 @@ class AndroidHealthServiceTest {
         val snapshot = AndroidHealthService(
             context = context,
             fullScreenIntentAllowed = { false },
+            batteryOptimizationIgnored = { false },
         ).snapshot()
 
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.exactAlarm)
@@ -74,6 +77,7 @@ class AndroidHealthServiceTest {
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.fullScreenIntent)
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.camera)
         assertEquals(HealthStatus.UNAVAILABLE, snapshot.microphone)
+        assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.batteryOptimization)
         assertFalse(snapshot.canScheduleAlarms)
     }
 

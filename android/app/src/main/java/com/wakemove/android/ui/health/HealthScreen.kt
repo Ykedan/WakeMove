@@ -20,6 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wakemove.android.health.HealthSnapshot
 import com.wakemove.android.health.HealthStatus
+import com.wakemove.android.scheduling.SchedulerHealthSnapshot
+import com.wakemove.android.scheduling.SchedulingResult
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 enum class HealthIssue {
     EXACT_ALARM,
@@ -27,6 +31,7 @@ enum class HealthIssue {
     FULL_SCREEN_INTENT,
     CAMERA,
     MICROPHONE,
+    BATTERY_OPTIMIZATION,
 }
 
 @Composable
@@ -34,6 +39,8 @@ fun HealthScreen(
     snapshot: HealthSnapshot,
     onRepair: (HealthIssue) -> Unit,
     modifier: Modifier = Modifier,
+    scheduling: SchedulerHealthSnapshot = SchedulerHealthSnapshot(),
+    zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     Column(
         modifier = modifier.fillMaxSize().padding(20.dp),
@@ -41,6 +48,15 @@ fun HealthScreen(
     ) {
         Text("健康检查", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Text(if (snapshot.canScheduleAlarms) "闹钟基础能力正常" else "需要修复后才能可靠响铃")
+        Text("最近调度：${scheduling.lastResult.label()}")
+        Text(
+            scheduling.nextRegisteredAt?.let {
+                "下次已注册：${
+                    it.atZone(zoneId)
+                        .format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))
+                }"
+            } ?: "下次已注册：暂无",
+        )
         healthRows(snapshot).forEach { row ->
             Card(Modifier.fillMaxWidth()) {
                 Row(
@@ -79,6 +95,11 @@ private fun healthRows(snapshot: HealthSnapshot) = listOf(
     HealthRow(HealthIssue.FULL_SCREEN_INTENT, "全屏响铃", snapshot.fullScreenIntent),
     HealthRow(HealthIssue.CAMERA, "相机", snapshot.camera),
     HealthRow(HealthIssue.MICROPHONE, "麦克风", snapshot.microphone),
+    HealthRow(
+        HealthIssue.BATTERY_OPTIMIZATION,
+        "电池优化",
+        snapshot.batteryOptimization,
+    ),
 )
 
 private fun HealthStatus.label(): String = when (this) {
@@ -93,4 +114,11 @@ private fun HealthIssue.tag(): String = when (this) {
     HealthIssue.FULL_SCREEN_INTENT -> "full_screen_intent"
     HealthIssue.CAMERA -> "camera"
     HealthIssue.MICROPHONE -> "microphone"
+    HealthIssue.BATTERY_OPTIMIZATION -> "battery_optimization"
+}
+
+private fun SchedulingResult.label(): String = when (this) {
+    SchedulingResult.NEVER -> "暂无记录"
+    SchedulingResult.SUCCESS -> "成功"
+    SchedulingResult.FAILURE -> "失败"
 }

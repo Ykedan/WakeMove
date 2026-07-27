@@ -204,6 +204,7 @@ fun WakeMoveNavHost(
                 onOpenSettings = { route = ROUTE_SETTINGS },
                 historyEvents = historyEvents,
                 healthSnapshot = healthProvider(),
+                schedulingHealth = scheduler.healthSnapshot(),
                 onClearHistory = {
                     coroutineScope.launch {
                         repository.clearHistory()
@@ -229,6 +230,7 @@ private fun MainShell(
     onOpenSettings: () -> Unit,
     historyEvents: List<AlarmEvent>,
     healthSnapshot: HealthSnapshot,
+    schedulingHealth: com.wakemove.android.scheduling.SchedulerHealthSnapshot,
     onClearHistory: () -> Unit,
     onRepairHealth: (HealthIssue) -> Unit,
     modifier: Modifier = Modifier,
@@ -279,6 +281,7 @@ private fun MainShell(
                 )
                 MainDestination.HEALTH -> HealthScreen(
                     snapshot = healthSnapshot,
+                    scheduling = schedulingHealth,
                     onRepair = onRepairHealth,
                     modifier = Modifier.fillMaxSize(),
                 )
