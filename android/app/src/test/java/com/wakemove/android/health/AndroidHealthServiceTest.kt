@@ -120,6 +120,26 @@ class AndroidHealthServiceTest {
     }
 
     @Test
+    fun `alarm channel below high importance requires repair`() {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.deleteNotificationChannel("ringing_alarms")
+        manager.createNotificationChannel(
+            NotificationChannel(
+                "ringing_alarms",
+                "Ringing alarms",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
+
+        val snapshot = AndroidHealthService(
+            context = context,
+            speechRecognitionAvailable = { true },
+        ).snapshot()
+
+        assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.notificationChannel)
+    }
+
+    @Test
     fun `recognizer absence is unavailable even with microphone permission`() {
         val snapshot = AndroidHealthService(
             context = context,

@@ -76,11 +76,17 @@ class RoomAlarmRepository(
     override suspend fun expireOneShot(
         alarm: Alarm,
         event: AlarmEvent,
+        expectedUpdatedAt: Instant,
     ): Boolean {
         require(alarm.repeatDays.isEmpty())
         require(!alarm.enabled)
         require(event.alarmId == alarm.id && event.result == AlarmEventResult.MISSED)
-        return dao.expireOneShot(alarm.toEntity(), event.toEntity())
+        return dao.expireOneShot(
+            alarm = alarm.toEntity(),
+            event = event.toEntity(),
+            expectedUpdatedAtEpochSecond = expectedUpdatedAt.epochSecond,
+            expectedUpdatedAtNano = expectedUpdatedAt.nano,
+        )
     }
 
     override suspend fun pendingSchedules(): List<PendingAlarmSchedule> =

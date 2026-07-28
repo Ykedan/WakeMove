@@ -159,7 +159,7 @@ class PoseLandmarkerAdapter(
                     .setResolutionStrategy(
                         ResolutionStrategy(
                             Size(MAX_ANALYSIS_WIDTH, MAX_ANALYSIS_HEIGHT),
-                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER,
                         ),
                     )
                     .build(),

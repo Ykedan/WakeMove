@@ -290,7 +290,7 @@ private class SingleAlarmRepository(
 
     override suspend fun saveSession(session: RingingSession) = error("not used")
 
-    override suspend fun activeSession(): RingingSession? = error("not used")
+    override suspend fun activeSession(): RingingSession? = null
 
     override suspend fun transitionSession(
         session: RingingSession,

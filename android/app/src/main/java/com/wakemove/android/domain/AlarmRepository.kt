@@ -33,6 +33,7 @@ interface AlarmRepository {
     suspend fun expireOneShot(
         alarm: Alarm,
         event: AlarmEvent,
+        expectedUpdatedAt: java.time.Instant = alarm.updatedAt,
     ): Boolean = false
 
     suspend fun pendingSchedules(): List<PendingAlarmSchedule> = emptyList()

@@ -106,7 +106,7 @@ class AndroidHealthService(
         val manager = notificationManager ?: return HealthStatus.UNAVAILABLE
         val channel = manager.getNotificationChannel(RingingService.NOTIFICATION_CHANNEL_ID)
             ?: return HealthStatus.ACTION_REQUIRED
-        return if (channel.importance == NotificationManager.IMPORTANCE_NONE) {
+        return if (channel.importance < NotificationManager.IMPORTANCE_HIGH) {
             HealthStatus.ACTION_REQUIRED
         } else {
             HealthStatus.READY

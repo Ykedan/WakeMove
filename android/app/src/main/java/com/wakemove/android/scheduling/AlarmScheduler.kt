@@ -10,6 +10,8 @@ interface AlarmScheduler {
 
     suspend fun rescheduleAll()
 
+    fun onAlarmDelivered(alarmId: String) = Unit
+
     fun healthSnapshot(): SchedulerHealthSnapshot = SchedulerHealthSnapshot()
 }
 

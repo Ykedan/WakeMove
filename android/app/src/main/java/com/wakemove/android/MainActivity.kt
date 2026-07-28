@@ -20,6 +20,7 @@ import com.wakemove.android.ui.theme.WakeMoveTheme
 
 class MainActivity : ComponentActivity() {
     private var ringingOnlyLaunch = false
+    private var observedRingingSession = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         applyRingingWindowFlags(intent)
@@ -72,11 +73,16 @@ class MainActivity : ComponentActivity() {
     }
 
     internal fun syncRingingWindow(status: SessionStatus?) {
-        if (status == SessionStatus.RINGING) return
+        if (status == SessionStatus.RINGING) {
+            observedRingingSession = true
+            return
+        }
+        if (!observedRingingSession) return
         setShowWhenLocked(false)
         setTurnScreenOn(false)
         if (ringingOnlyLaunch && !isFinishing) finish()
         ringingOnlyLaunch = false
+        observedRingingSession = false
     }
 
     private companion object {

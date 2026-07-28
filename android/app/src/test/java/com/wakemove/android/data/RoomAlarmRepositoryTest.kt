@@ -8,21 +8,32 @@ import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.domain.PendingAlarmSchedule
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.SessionStatus
+import com.wakemove.android.ringing.AlarmAudioPlayer
+import com.wakemove.android.ringing.AlarmSoundState
+import com.wakemove.android.ringing.AlarmVibrator
+import com.wakemove.android.ringing.RingingSessionController
+import com.wakemove.android.scheduling.AndroidAlarmScheduler
+import com.wakemove.android.scheduling.PendingScheduleRecovery
 import java.time.DayOfWeek
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalTime
+import java.time.ZoneId
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [35])
@@ -37,6 +48,7 @@ class RoomAlarmRepositoryTest {
             AlarmDatabase::class.java,
         ).build()
         repository = RoomAlarmRepository(database.alarmDao())
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
     }
 
     @After
@@ -117,7 +129,7 @@ class RoomAlarmRepositoryTest {
     fun `pending schedule round trips losslessly and is acknowledged by exact value`() =
         runBlocking {
             val scheduledAt = Instant.ofEpochSecond(1_800_000_010, 987_654_321)
-            val ringing = session().copy(pendingScheduleAt = scheduledAt)
+            val ringing = session(status = SessionStatus.SNOOZED).copy(pendingScheduleAt = scheduledAt)
             repository.saveSession(ringing)
 
             assertEquals(
@@ -143,8 +155,122 @@ class RoomAlarmRepositoryTest {
                 true,
                 repository.acknowledgePendingSchedule(ringing.id, scheduledAt),
             )
-            assertEquals(emptyList<PendingAlarmSchedule>(), repository.pendingSchedules())
+            assertEquals(listOf(scheduledAt), repository.pendingSchedules().map { it.scheduledAt })
         }
+
+    @Test
+    fun `one shot snooze survives registration reboot recovery and delivery`() = runBlocking {
+        val now = Instant.parse("2026-07-24T00:00:00Z")
+        val snoozeAt = Instant.parse("2026-07-24T00:30:00Z")
+        val oneShot = alarm(
+            id = "one-shot-snooze",
+            time = LocalTime.of(1, 0),
+            repeatDays = emptySet(),
+            updatedAt = now,
+        )
+        val snoozed = session(
+            id = "one-shot-snooze-session",
+            alarmId = oneShot.id,
+            status = SessionStatus.SNOOZED,
+        ).copy(pendingScheduleAt = snoozeAt)
+        repository.upsertAlarm(oneShot)
+        repository.saveSession(snoozed)
+        val scheduler = schedulerAt(now)
+        val recovery = PendingScheduleRecovery(repository, scheduler)
+
+        assertEquals(listOf(snoozeAt), repository.pendingSchedules().map { it.scheduledAt })
+        assertEquals(1, recovery.recover().registeredCount)
+        assertEquals(listOf(snoozeAt), repository.pendingSchedules().map { it.scheduledAt })
+
+        scheduler.cancel(oneShot.id) // Simulate the platform losing its registrations on reboot.
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        scheduler.rescheduleAll() // Regular recovery must leave the active snooze alone.
+        assertEquals(listOf(snoozeAt), repository.pendingSchedules().map { it.scheduledAt })
+        assertEquals(true, repository.getAlarm(oneShot.id)?.enabled)
+        assertEquals(emptyList<AlarmEvent>(), repository.recentEvents())
+        assertEquals(emptyList<Any>(), shadowOf(
+            RuntimeEnvironment.getApplication().getSystemService(android.app.AlarmManager::class.java),
+        ).scheduledAlarms)
+
+        ShadowAlarmManager.setCanScheduleExactAlarms(true) // Exact-alarm access is granted.
+        assertEquals(1, recovery.recover().registeredCount)
+        assertEquals(snoozeAt.toEpochMilli(), scheduledTriggerFor(oneShot.id))
+        assertEquals(listOf(snoozeAt), repository.pendingSchedules().map { it.scheduledAt })
+
+        scheduler.onAlarmDelivered(oneShot.id)
+        assertTrue(controller(scheduler, now).start(oneShot.id))
+        assertEquals(SessionStatus.RINGING, repository.activeSession()?.status)
+        assertEquals(emptyList<PendingAlarmSchedule>(), repository.pendingSchedules())
+        assertEquals(true, repository.getAlarm(oneShot.id)?.enabled)
+    }
+
+    @Test
+    fun `repeating snooze wins over normal recurrence through reboot recovery and delivery`() =
+        runBlocking {
+            val now = Instant.parse("2026-07-24T00:00:00Z")
+            val snoozeAt = Instant.parse("2026-07-24T00:30:00Z")
+            val repeating = alarm(
+                id = "repeating-snooze",
+                time = LocalTime.of(7, 30),
+                repeatDays = setOf(DayOfWeek.FRIDAY),
+                updatedAt = now,
+            )
+            val snoozed = session(
+                id = "repeating-snooze-session",
+                alarmId = repeating.id,
+                status = SessionStatus.SNOOZED,
+            ).copy(pendingScheduleAt = snoozeAt)
+            repository.upsertAlarm(repeating)
+            repository.saveSession(snoozed)
+            val scheduler = schedulerAt(now)
+            val recovery = PendingScheduleRecovery(repository, scheduler)
+
+            assertEquals(listOf(snoozeAt), repository.pendingSchedules().map { it.scheduledAt })
+            assertEquals(1, recovery.recover().registeredCount)
+            assertEquals(listOf(snoozeAt), repository.pendingSchedules().map { it.scheduledAt })
+
+            scheduler.cancel(repeating.id)
+            ShadowAlarmManager.setCanScheduleExactAlarms(false)
+            scheduler.rescheduleAll()
+            assertEquals(listOf(snoozeAt), repository.pendingSchedules().map { it.scheduledAt })
+            assertEquals(true, repository.getAlarm(repeating.id)?.enabled)
+            assertEquals(emptyList<Any>(), shadowOf(
+                RuntimeEnvironment.getApplication().getSystemService(android.app.AlarmManager::class.java),
+            ).scheduledAlarms)
+
+            ShadowAlarmManager.setCanScheduleExactAlarms(true)
+            assertEquals(1, recovery.recover().registeredCount)
+            assertEquals(snoozeAt.toEpochMilli(), scheduledTriggerFor(repeating.id))
+            assertEquals(listOf(snoozeAt), repository.pendingSchedules().map { it.scheduledAt })
+
+            scheduler.onAlarmDelivered(repeating.id)
+            assertTrue(controller(scheduler, now).start(repeating.id))
+            assertEquals(SessionStatus.RINGING, repository.activeSession()?.status)
+            assertEquals(emptyList<PendingAlarmSchedule>(), repository.pendingSchedules())
+            assertEquals(setOf(DayOfWeek.FRIDAY), repository.getAlarm(repeating.id)?.repeatDays)
+            assertEquals(true, repository.getAlarm(repeating.id)?.enabled)
+        }
+
+    @Test
+    fun `stale one shot expiry does not overwrite a newer alarm edit`() = runBlocking {
+        val original = alarm(id = "edited-one-shot", repeatDays = emptySet())
+        val newer = original.copy(updatedAt = original.updatedAt.plusSeconds(60))
+        val staleExpiry = original.copy(enabled = false, updatedAt = original.updatedAt.plusSeconds(120))
+        val missed = event(id = "missed:edited", alarmId = original.id)
+            .copy(result = AlarmEventResult.MISSED)
+        repository.upsertAlarm(newer)
+
+        assertEquals(
+            false,
+            repository.expireOneShot(
+                staleExpiry,
+                missed,
+                expectedUpdatedAt = original.updatedAt,
+            ),
+        )
+        assertEquals(newer, repository.getAlarm(original.id))
+        assertEquals(emptyList<AlarmEvent>(), repository.recentEvents())
+    }
 
     @Test
     fun `terminal transition atomically disables a one shot alarm`() = runBlocking {
@@ -359,8 +485,14 @@ class RoomAlarmRepositoryTest {
         repository.upsertAlarm(oneShot)
         val disabled = oneShot.copy(enabled = false, updatedAt = finishedAt)
 
-        assertEquals(true, repository.expireOneShot(disabled, missed))
-        assertEquals(false, repository.expireOneShot(disabled, missed))
+        assertEquals(
+            true,
+            repository.expireOneShot(disabled, missed, expectedUpdatedAt = oneShot.updatedAt),
+        )
+        assertEquals(
+            false,
+            repository.expireOneShot(disabled, missed, expectedUpdatedAt = oneShot.updatedAt),
+        )
 
         assertEquals(false, repository.getAlarm(oneShot.id)?.enabled)
         assertEquals(listOf(missed), repository.recentEvents())
@@ -423,4 +555,55 @@ class RoomAlarmRepositoryTest {
         snoozeCount = 1,
         result = AlarmEventResult.COMPLETED,
     )
+
+    private fun schedulerAt(now: Instant): AndroidAlarmScheduler {
+        val context = RuntimeEnvironment.getApplication()
+        return AndroidAlarmScheduler(
+            context = context,
+            alarmManager = context.getSystemService(android.app.AlarmManager::class.java),
+            repository = repository,
+            clock = Clock.fixed(now, ZoneId.of("UTC")),
+            zoneProvider = { ZoneId.of("UTC") },
+        )
+    }
+
+    private fun scheduledTriggerFor(alarmId: String): Long {
+        val alarmManager = RuntimeEnvironment.getApplication()
+            .getSystemService(android.app.AlarmManager::class.java)
+        return shadowOf(alarmManager).scheduledAlarms.single { scheduled ->
+            shadowOf(scheduled.operation).savedIntent
+                .getStringExtra(com.wakemove.android.scheduling.AlarmReceiver.EXTRA_ALARM_ID) == alarmId
+        }.triggerAtMs
+    }
+
+    private fun controller(
+        scheduler: AndroidAlarmScheduler,
+        now: Instant,
+    ) = RingingSessionController(
+        repository = repository,
+        audioPlayer = TestAudioPlayer(),
+        vibrator = TestVibrator(),
+        scheduler = scheduler,
+        clock = Clock.fixed(now, ZoneId.of("UTC")),
+        zoneProvider = { ZoneId.of("UTC") },
+    )
+
+    private class TestAudioPlayer : AlarmAudioPlayer {
+        override var soundState = AlarmSoundState.STOPPED
+            private set
+
+        override fun play(soundId: String) {
+            soundState = AlarmSoundState.PLAYING
+        }
+
+        override fun stop() {
+            soundState = AlarmSoundState.STOPPED
+        }
+    }
+
+    private class TestVibrator : AlarmVibrator {
+        override fun start() = Unit
+
+        override fun stop() = Unit
+    }
 }

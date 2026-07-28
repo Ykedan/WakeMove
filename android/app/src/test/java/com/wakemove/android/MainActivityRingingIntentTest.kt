@@ -47,10 +47,30 @@ class MainActivityRingingIntentTest {
         )
         assertTrue(shadowOf(activity).showWhenLocked)
 
+        activity.syncRingingWindow(SessionStatus.RINGING)
         activity.syncRingingWindow(SessionStatus.COMPLETED)
 
         assertFalse(shadowOf(activity).showWhenLocked)
         assertFalse(shadowOf(activity).turnScreenOn)
         assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun `pre session ringing launch keeps lock screen flags until a ringing session is observed`() {
+        val controller = Robolectric.buildActivity(
+            MainActivity::class.java,
+            Intent(Intent.ACTION_MAIN),
+        ).create()
+        val activity = controller.get()
+        controller.newIntent(
+            Intent(activity, MainActivity::class.java)
+                .setAction(RingingService.ACTION_SHOW_RINGING),
+        )
+
+        activity.syncRingingWindow(null)
+
+        assertTrue(shadowOf(activity).showWhenLocked)
+        assertTrue(shadowOf(activity).turnScreenOn)
+        assertFalse(activity.isFinishing)
     }
 }

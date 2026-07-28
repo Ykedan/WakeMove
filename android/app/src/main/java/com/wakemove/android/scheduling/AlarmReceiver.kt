@@ -8,6 +8,9 @@ import androidx.core.content.ContextCompat
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getStringExtra(EXTRA_ALARM_ID) ?: return
+        (context.applicationContext as? SchedulingDependencies)
+            ?.alarmScheduler
+            ?.onAlarmDelivered(alarmId)
         val serviceIntent = Intent(ACTION_START_RINGING)
             .setClassName(context, RINGING_SERVICE_CLASS_NAME)
             .putExtra(EXTRA_ALARM_ID, alarmId)

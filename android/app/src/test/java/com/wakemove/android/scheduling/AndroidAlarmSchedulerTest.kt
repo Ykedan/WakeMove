@@ -310,7 +310,7 @@ private class FakeAlarmRepository(
 
     override suspend fun saveSession(session: RingingSession) = error("not used")
 
-    override suspend fun activeSession(): RingingSession? = error("not used")
+    override suspend fun activeSession(): RingingSession? = null
 
     override suspend fun transitionSession(
         session: RingingSession,
@@ -319,7 +319,11 @@ private class FakeAlarmRepository(
         alarmUpdate: Alarm?,
     ): Boolean = error("not used")
 
-    override suspend fun expireOneShot(alarm: Alarm, event: AlarmEvent): Boolean {
+    override suspend fun expireOneShot(
+        alarm: Alarm,
+        event: AlarmEvent,
+        expectedUpdatedAt: Instant,
+    ): Boolean {
         val index = alarms.indexOfFirst { it.id == alarm.id && it.enabled }
         if (index < 0) return false
         alarms[index] = alarm.copy(enabled = false, updatedAt = checkNotNull(event.finishedAt))

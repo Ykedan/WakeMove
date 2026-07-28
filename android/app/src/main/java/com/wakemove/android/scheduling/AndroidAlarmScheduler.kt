@@ -98,9 +98,18 @@ class AndroidAlarmScheduler(
         }
     }
 
+    override fun onAlarmDelivered(alarmId: String) {
+        registeredAlarms.remove(alarmId)
+        diagnostics.edit()
+            .remove(KEY_ALARM_PREFIX + alarmId)
+            .apply()
+    }
+
     override suspend fun rescheduleAll() {
         val now = ZonedDateTime.ofInstant(clock.instant(), zoneProvider())
+        val activeAlarmId = repository.activeSession()?.alarmId
         repository.observeAlarms().first().forEach { alarm ->
+            if (alarm.id == activeAlarmId) return@forEach
             val occurrence = alarm
                 .takeIf(Alarm::enabled)
                 ?.let {
@@ -136,6 +145,7 @@ class AndroidAlarmScheduler(
                             updatedAt = clock.instant(),
                         ),
                         event = event,
+                        expectedUpdatedAt = alarm.updatedAt,
                     )
                 }
                 cancel(alarm.id)

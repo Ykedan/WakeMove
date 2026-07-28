@@ -62,8 +62,10 @@ abstract class AlarmDao {
         """
         UPDATE ringing_sessions
         SET
-            pending_schedule_at_epoch_second = NULL,
-            pending_schedule_at_nano = NULL
+            pending_schedule_at_epoch_second = CASE WHEN status = 'SNOOZED'
+                THEN pending_schedule_at_epoch_second ELSE NULL END,
+            pending_schedule_at_nano = CASE WHEN status = 'SNOOZED'
+                THEN pending_schedule_at_nano ELSE NULL END
         WHERE id = :sessionId
           AND pending_schedule_at_epoch_second = :scheduledAtEpochSecond
           AND pending_schedule_at_nano = :scheduledAtNano
@@ -114,9 +116,14 @@ abstract class AlarmDao {
     open suspend fun expireOneShot(
         alarm: AlarmEntity,
         event: AlarmEventEntity,
+        expectedUpdatedAtEpochSecond: Long,
+        expectedUpdatedAtNano: Int,
     ): Boolean {
         val current = getAlarm(alarm.id) ?: return false
-        if (!current.enabled || current.repeatDays != 0) return false
+        if (!current.enabled || current.repeatDays != 0 ||
+            current.updatedAtEpochSecond != expectedUpdatedAtEpochSecond ||
+            current.updatedAtNano != expectedUpdatedAtNano
+        ) return false
         upsertAlarm(alarm)
         appendEvent(event)
         return true
