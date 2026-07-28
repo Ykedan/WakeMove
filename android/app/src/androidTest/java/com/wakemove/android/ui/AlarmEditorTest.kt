@@ -145,6 +145,37 @@ class AlarmEditorTest {
     }
 
     @Test
+    fun targetStepperChangesCountAndStopsAtOne() {
+        var state by mutableStateOf(
+            AlarmEditorUiState(
+                timeText = "07:30",
+                targetCount = 2,
+                health = readyHealth,
+            ),
+        )
+        composeRule.setContent {
+            WakeMoveTheme {
+                AlarmEditorScreen(
+                    state = state,
+                    onTimeChange = {},
+                    onDayToggle = {},
+                    onChallengeSelected = { state = state.copy(challengeType = it) },
+                    onTargetCountChange = { state = state.copy(targetCount = it) },
+                    onSave = {},
+                    onDelete = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("target_decrease").performScrollTo().performClick()
+        composeRule.onNodeWithText("1").assertIsDisplayed()
+        composeRule.onNodeWithTag("target_decrease").assertIsNotEnabled()
+        composeRule.onNodeWithTag("target_increase").performClick()
+        composeRule.onNodeWithText("2").assertIsDisplayed()
+    }
+
+    @Test
     fun voiceChallengeHidesTargetCountWithoutBlockingSaveBeforeChallengePermission() {
         var state by mutableStateOf(
             AlarmEditorUiState(
@@ -170,6 +201,7 @@ class AlarmEditorTest {
         composeRule.onNodeWithTag("target_count").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("challenge_VOICE_PHRASE").performClick()
         composeRule.onNodeWithTag("challenge_VOICE_PHRASE").assertIsSelected()
+        composeRule.onNodeWithText("正确朗读指定短语后关闭").assertIsDisplayed()
         composeRule.onNodeWithTag("target_count").assertDoesNotExist()
 
         composeRule.runOnIdle {

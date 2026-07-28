@@ -66,12 +66,12 @@ class AlarmNavigationTest {
         composeRule.onNodeWithTag("add_alarm").performClick()
         composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
         composeRule.onNodeWithTag("weekday_MONDAY").performScrollTo().performClick()
-        composeRule.onNodeWithTag("save_alarm").performScrollTo().performClick()
+        composeRule.onNodeWithTag("save_alarm").performClick()
 
         composeRule.onNodeWithText("保存失败，闹钟状态已恢复")
             .performScrollTo()
             .assertIsDisplayed()
-        composeRule.onNodeWithTag("alarm_time").assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm_time").performScrollTo().assertIsDisplayed()
         composeRule.runOnIdle { assertEquals(0, repository.alarmCount) }
     }
 
@@ -91,7 +91,7 @@ class AlarmNavigationTest {
         composeRule.onNodeWithTag("add_alarm").performClick()
         composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
         composeRule.onNodeWithTag("weekday_MONDAY").performScrollTo().performClick()
-        composeRule.onNodeWithTag("save_alarm").performScrollTo().performClick()
+        composeRule.onNodeWithTag("save_alarm").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithTag("submission_progress")
                 .fetchSemanticsNodes().isNotEmpty()
@@ -119,7 +119,7 @@ class AlarmNavigationTest {
         composeRule.onNodeWithTag("add_alarm").performClick()
         composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
         composeRule.onNodeWithTag("weekday_MONDAY").performScrollTo().performClick()
-        composeRule.onNodeWithTag("save_alarm").performScrollTo().performClick()
+        composeRule.onNodeWithTag("save_alarm").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithTag("submission_progress")
                 .fetchSemanticsNodes().isNotEmpty()
