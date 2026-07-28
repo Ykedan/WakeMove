@@ -1,20 +1,26 @@
 package com.wakemove.android.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import com.wakemove.android.MainActivity
 import com.wakemove.android.domain.Alarm
@@ -32,10 +38,13 @@ import com.wakemove.android.ui.alarms.AlarmEditorUiState
 import com.wakemove.android.ui.alarms.AlarmEditorViewModel
 import com.wakemove.android.ui.alarms.AlarmListScreen
 import com.wakemove.android.ui.alarms.AlarmListViewModel
+import com.wakemove.android.ui.alarms.AlarmOperationUiState
 import com.wakemove.android.ui.theme.WakeMoveTheme
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
@@ -224,6 +233,107 @@ class AlarmEditorTest {
         composeRule.runOnIdle { assertEquals("alarm-1", editedId) }
         composeRule.onNodeWithTag("alarm_enabled_alarm-1").performClick()
         composeRule.runOnIdle { assertEquals(false, enabledChange) }
+    }
+
+    @Test
+    fun emptyAlarmListShowsSunriseCallToAction() {
+        composeRule.setContent {
+            WakeMoveTheme {
+                AlarmListScreen(
+                    alarms = emptyList(),
+                    onCreateAlarm = {},
+                    onEditAlarm = {},
+                    onEnabledChange = { _, _ -> },
+                    onOpenSettings = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("empty_alarm_state").assertIsDisplayed()
+        composeRule.onNodeWithText("还没有闹钟").assertIsDisplayed()
+        composeRule.onNodeWithText("设置第一个闹钟").assertIsDisplayed()
+        composeRule.onNodeWithTag("next_alarm_card").assertDoesNotExist()
+    }
+
+    @Test
+    fun enabledAlarmListShowsDeterministicNextAlarm() {
+        composeRule.setContent {
+            WakeMoveTheme {
+                AlarmListScreen(
+                    alarms = listOf(alarm()),
+                    onCreateAlarm = {},
+                    onEditAlarm = {},
+                    onEnabledChange = { _, _ -> },
+                    onOpenSettings = {},
+                    nowProvider = { MONDAY_MORNING },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("next_alarm_card").assertIsDisplayed()
+        composeRule.onNodeWithText("下一次唤醒").assertIsDisplayed()
+        composeRule.onNodeWithText("07:30").assertIsDisplayed()
+    }
+
+    @Test
+    fun allDisabledAlarmListInvitesEnablingAnAlarm() {
+        composeRule.setContent {
+            WakeMoveTheme {
+                AlarmListScreen(
+                    alarms = listOf(alarm().copy(enabled = false)),
+                    onCreateAlarm = {},
+                    onEditAlarm = {},
+                    onEnabledChange = { _, _ -> },
+                    onOpenSettings = {},
+                    nowProvider = { MONDAY_MORNING },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("开启一个闹钟，迎接新的早晨").assertIsDisplayed()
+        composeRule.onNodeWithTag("next_alarm_card").assertDoesNotExist()
+    }
+
+    @Test
+    fun narrowAlarmListKeepsSettingsVisible() {
+        composeRule.setContent {
+            WakeMoveTheme {
+                Box(Modifier.width(320.dp)) {
+                    AlarmListScreen(
+                        alarms = emptyList(),
+                        onCreateAlarm = {},
+                        onEditAlarm = {},
+                        onEnabledChange = { _, _ -> },
+                        onOpenSettings = {},
+                    )
+                }
+            }
+        }
+
+        val settingsBounds = composeRule.onNodeWithTag("settings_button")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(48.dp)
+            .getUnclippedBoundsInRoot()
+        assertTrue(settingsBounds.right <= 320.dp)
+    }
+
+    @Test
+    fun inFlightAlarmListDisablesNextAlarmHeroSemantics() {
+        composeRule.setContent {
+            WakeMoveTheme {
+                AlarmListScreen(
+                    alarms = listOf(alarm()),
+                    operationState = AlarmOperationUiState(isInFlight = true),
+                    onCreateAlarm = {},
+                    onEditAlarm = {},
+                    onEnabledChange = { _, _ -> },
+                    onOpenSettings = {},
+                    nowProvider = { MONDAY_MORNING },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("next_alarm_card").assertIsNotEnabled()
     }
 
     @Test
@@ -482,6 +592,17 @@ class AlarmEditorTest {
     }
 
     companion object {
+        private val MONDAY_MORNING = ZonedDateTime.of(
+            2026,
+            7,
+            27,
+            6,
+            0,
+            0,
+            0,
+            ZoneId.of("Asia/Shanghai"),
+        )
+
         private val readyHealth = HealthSnapshot(
             exactAlarm = HealthStatus.READY,
             notifications = HealthStatus.READY,
