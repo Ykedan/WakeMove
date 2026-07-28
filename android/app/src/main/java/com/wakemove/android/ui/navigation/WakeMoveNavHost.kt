@@ -58,7 +58,6 @@ import com.wakemove.android.ui.ringing.RingingFlowHost
 import com.wakemove.android.ui.settings.SettingsScreen
 import com.wakemove.android.ui.theme.WakeMoveMutedText
 import com.wakemove.android.ui.theme.WakeMovePeach
-import com.wakemove.android.ui.theme.WakeMoveSunrise
 import java.time.DayOfWeek
 import kotlinx.coroutines.launch
 
@@ -270,8 +269,8 @@ private fun MainShell(
                         },
                         label = { Text(item.label) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = WakeMoveSunrise,
-                            selectedTextColor = WakeMoveSunrise,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
                             unselectedIconColor = WakeMoveMutedText,
                             unselectedTextColor = WakeMoveMutedText,
                             indicatorColor = WakeMovePeach,

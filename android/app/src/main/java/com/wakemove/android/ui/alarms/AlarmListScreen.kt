@@ -79,6 +79,7 @@ fun AlarmListScreen(
                     },
                     enabled = interactionsEnabled,
                 )
+                alarms.any(Alarm::enabled) -> UnschedulableAlarmHero()
                 else -> DisabledAlarmHero()
             }
         }

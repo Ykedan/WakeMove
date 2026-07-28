@@ -199,6 +199,35 @@ class AlarmNavigationTest {
         }
     }
 
+    @Test
+    fun selectedNavigationAndChallengePairsMeetTextAndGraphicContrast() {
+        var selectedForeground = Color.Unspecified
+        var navigationSurface = Color.Unspecified
+        var selectedContainer = Color.Unspecified
+        composeRule.setContent {
+            WakeMoveTheme {
+                selectedForeground = MaterialTheme.colorScheme.primary
+                navigationSurface = MaterialTheme.colorScheme.surface
+                selectedContainer = MaterialTheme.colorScheme.primaryContainer
+            }
+        }
+
+        composeRule.runOnIdle {
+            assertTrue(
+                "Selected navigation label contrast must be at least 4.5:1",
+                contrastRatio(selectedForeground, navigationSurface) >= 4.5,
+            )
+            assertTrue(
+                "Selected navigation icon contrast must be at least 3:1",
+                contrastRatio(selectedForeground, selectedContainer) >= 3.0,
+            )
+            assertTrue(
+                "Selected challenge border and check contrast must be at least 3:1",
+                contrastRatio(selectedForeground, selectedContainer) >= 3.0,
+            )
+        }
+    }
+
     private fun setNavContent(
         repository: FakeAlarmRepository,
         scheduler: FakeAlarmScheduler,

@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 val WakeMoveBackground = Color(0xFFFFF8F0)
 val WakeMoveSurface = Color(0xFFFFFFFF)
 val WakeMoveSunrise = Color(0xFFFF7A1A)
+val WakeMoveSunriseForeground = Color(0xFFA33A00)
 val WakeMoveSunlight = Color(0xFFFFC45C)
 val WakeMovePeach = Color(0xFFFFE8D2)
 val WakeMoveText = Color(0xFF2F261F)
@@ -22,8 +23,8 @@ val WakeMoveMutedText = Color(0xFF75675C)
 val WakeMoveErrorContainer = Color(0xFFFFE8E6)
 
 private val WakeMoveColors = lightColorScheme(
-    primary = WakeMoveSunrise,
-    onPrimary = WakeMoveText,
+    primary = WakeMoveSunriseForeground,
+    onPrimary = WakeMoveSurface,
     primaryContainer = WakeMovePeach,
     onPrimaryContainer = WakeMoveText,
     secondary = WakeMoveSunlight,

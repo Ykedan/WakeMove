@@ -19,6 +19,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -319,6 +320,7 @@ class AlarmEditorTest {
             }
         }
 
+        composeRule.onNodeWithText("＋ 添加新闹钟").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("add_alarm").performClick()
         composeRule.runOnIdle { assertTrue(created) }
         composeRule.onNodeWithTag("alarm_card_alarm-1").performClick()
@@ -342,7 +344,11 @@ class AlarmEditorTest {
         }
 
         composeRule.onNodeWithTag("empty_alarm_state").assertIsDisplayed()
+        composeRule.onNodeWithText("早上好").assertIsDisplayed()
+        composeRule.onNodeWithText("让今天从真正醒来开始").assertIsDisplayed()
         composeRule.onNodeWithText("还没有闹钟").assertIsDisplayed()
+        composeRule.onNodeWithText("用动作或语音挑战，帮你真正清醒地开始一天")
+            .assertIsDisplayed()
         composeRule.onNodeWithText("设置第一个闹钟").assertIsDisplayed()
         composeRule.onNodeWithTag("next_alarm_card").assertDoesNotExist()
     }
@@ -365,6 +371,20 @@ class AlarmEditorTest {
         composeRule.onNodeWithTag("next_alarm_card").assertIsDisplayed()
         composeRule.onNodeWithText("下一次唤醒").assertIsDisplayed()
         composeRule.onNodeWithText("07:30").assertIsDisplayed()
+        composeRule.onNodeWithTag(
+            testTag = "next_alarm_challenge",
+            useUnmergedTree = true,
+        )
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals("深蹲 · 12 次")
+        composeRule.onNodeWithTag(
+            testTag = "alarm_challenge_alarm-1",
+            useUnmergedTree = true,
+        )
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals("深蹲 · 12 次")
     }
 
     @Test
@@ -383,6 +403,43 @@ class AlarmEditorTest {
         }
 
         composeRule.onNodeWithText("开启一个闹钟，迎接新的早晨").assertIsDisplayed()
+        composeRule.onNodeWithTag("next_alarm_card").assertDoesNotExist()
+    }
+
+    @Test
+    fun enabledUnschedulableAlarmListExplainsThatItsTimeMustBeAdjusted() {
+        val priorDateOneShot = alarm().copy(
+            time = LocalTime.of(9, 0),
+            repeatDays = emptySet(),
+            updatedAt = Instant.parse("2026-07-26T00:00:00Z"),
+        )
+        composeRule.setContent {
+            WakeMoveTheme {
+                AlarmListScreen(
+                    alarms = listOf(priorDateOneShot),
+                    onCreateAlarm = {},
+                    onEditAlarm = {},
+                    onEnabledChange = { _, _ -> },
+                    onOpenSettings = {},
+                    nowProvider = {
+                        ZonedDateTime.of(
+                            2026,
+                            7,
+                            27,
+                            8,
+                            0,
+                            0,
+                            0,
+                            ZoneId.of("Asia/Shanghai"),
+                        )
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("unschedulable_alarm_hero").assertIsDisplayed()
+        composeRule.onNodeWithText("已启用的闹钟没有可用时间，请重新设置").assertIsDisplayed()
+        composeRule.onNodeWithText("开启一个闹钟，迎接新的早晨").assertDoesNotExist()
         composeRule.onNodeWithTag("next_alarm_card").assertDoesNotExist()
     }
 

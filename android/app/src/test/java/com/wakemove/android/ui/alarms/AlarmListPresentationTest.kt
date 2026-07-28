@@ -48,6 +48,48 @@ class AlarmListPresentationTest {
     }
 
     @Test
+    fun `one shot from a previous local date is not presented as next`() {
+        val now = ZonedDateTime.of(2026, 7, 27, 8, 0, 0, 0, zone)
+
+        val result = findNextEnabledAlarm(
+            alarms = listOf(
+                alarm(
+                    id = "previous-day",
+                    hour = 9,
+                    minute = 0,
+                    updatedAt = Instant.parse("2026-07-26T00:00:00Z"),
+                ),
+            ),
+            now = now,
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `one shot from the same local date is presented later today`() {
+        val now = ZonedDateTime.of(2026, 7, 27, 8, 0, 0, 0, zone)
+
+        val result = findNextEnabledAlarm(
+            alarms = listOf(
+                alarm(
+                    id = "same-day",
+                    hour = 9,
+                    minute = 0,
+                    updatedAt = Instant.parse("2026-07-27T00:00:00Z"),
+                ),
+            ),
+            now = now,
+        )
+
+        assertEquals("same-day", result?.alarm?.id)
+        assertEquals(
+            ZonedDateTime.of(2026, 7, 27, 9, 0, 0, 0, zone),
+            result?.occurrence,
+        )
+    }
+
+    @Test
     fun `selects lexicographically smaller id when occurrences are identical`() {
         val now = ZonedDateTime.of(2026, 7, 27, 6, 0, 0, 0, zone)
         val result = findNextEnabledAlarm(
@@ -67,6 +109,7 @@ class AlarmListPresentationTest {
         minute: Int,
         enabled: Boolean = true,
         days: Set<DayOfWeek> = emptySet(),
+        updatedAt: Instant = Instant.parse("2026-07-27T00:00:00Z"),
     ) = Alarm(
         id = id,
         time = LocalTime.of(hour, minute),
@@ -78,6 +121,6 @@ class AlarmListPresentationTest {
         challengeType = ChallengeType.SQUAT,
         targetCount = 10,
         createdAt = Instant.parse("2026-01-01T00:00:00Z"),
-        updatedAt = Instant.parse("2026-01-01T00:00:00Z"),
+        updatedAt = updatedAt,
     )
 }

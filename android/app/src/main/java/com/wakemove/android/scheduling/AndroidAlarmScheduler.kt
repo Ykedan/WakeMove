@@ -112,14 +112,7 @@ class AndroidAlarmScheduler(
             if (alarm.id == activeAlarmId) return@forEach
             val occurrence = alarm
                 .takeIf(Alarm::enabled)
-                ?.let {
-                    val intendedDate = it.updatedAt.atZone(now.zone).toLocalDate()
-                    if (it.repeatDays.isEmpty() && intendedDate != now.toLocalDate()) {
-                        null
-                    } else {
-                        ScheduleCalculator.nextOccurrence(it, now)
-                    }
-                }
+                ?.let { ScheduleCalculator.nextOccurrence(it, now) }
 
             if (occurrence == null) {
                 if (alarm.enabled && alarm.repeatDays.isEmpty()) {

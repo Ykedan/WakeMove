@@ -171,6 +171,7 @@ internal fun ChallengeSelector(
         ChallengeType.entries.forEach { type ->
             val selected = selectedChallenge == type
             val shape = MaterialTheme.shapes.medium
+            val selectedForeground = MaterialTheme.colorScheme.primary
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -184,7 +185,7 @@ internal fun ChallengeSelector(
                     )
                     .border(
                         width = if (selected) 2.dp else 1.dp,
-                        color = if (selected) WakeMoveSunrise else WakeMovePeach,
+                        color = if (selected) selectedForeground else WakeMovePeach,
                         shape = shape,
                     )
                     .clickable(
@@ -210,7 +211,7 @@ internal fun ChallengeSelector(
                     Icon(
                         imageVector = type.challengeIcon(),
                         contentDescription = null,
-                        tint = WakeMoveSunrise,
+                        tint = if (selected) selectedForeground else WakeMoveSunrise,
                     )
                 }
                 Column(
@@ -232,7 +233,7 @@ internal fun ChallengeSelector(
                     Icon(
                         imageVector = Icons.Rounded.CheckCircle,
                         contentDescription = "已选择",
-                        tint = WakeMoveSunrise,
+                        tint = selectedForeground,
                     )
                 }
             }

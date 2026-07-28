@@ -82,13 +82,13 @@ internal fun MorningHeader(
         ) {
             Text(
                 text = "早上好",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "新的一天，从起床开始",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = "让今天从真正醒来开始",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(
@@ -171,6 +171,26 @@ internal fun NextAlarmHero(
                 style = MaterialTheme.typography.bodyMedium,
                 color = heroContentColor,
             )
+            Text(
+                text = "${model.alarm.challengeType.chineseLabel()} · " +
+                    model.alarm.targetDescription(),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(
+                        if (enabled) {
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
+                        } else {
+                            MaterialTheme.colorScheme.surface.copy(
+                                alpha = DISABLED_CONTAINER_ALPHA,
+                            )
+                        },
+                    )
+                    .testTag("next_alarm_challenge")
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = heroContentColor,
+            )
         }
     }
 }
@@ -194,6 +214,34 @@ internal fun DisabledAlarmHero() {
             )
             Text(
                 text = "开启一个闹钟，迎接新的早晨",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun UnschedulableAlarmHero() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("unschedulable_alarm_hero"),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = WakeMovePeach),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = "需要调整时间",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "已启用的闹钟没有可用时间，请重新设置",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -256,7 +304,7 @@ internal fun SunriseEmptyState(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "为明天的自己，准备一个温柔的开始",
+            text = "用动作或语音挑战，帮你真正清醒地开始一天",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -303,10 +351,15 @@ internal fun SunriseAlarmCard(
     } else {
         WakeMoveMutedText.copy(alpha = DISABLED_SECONDARY_ALPHA)
     }
-    val challengeTextColor = if (enabled) {
-        MaterialTheme.colorScheme.onSecondaryContainer
-    } else {
-        WakeMoveMutedText.copy(alpha = DISABLED_SECONDARY_ALPHA)
+    val challengeContainerColor = when {
+        !enabled -> WakeMovePeach.copy(alpha = DISABLED_GRADIENT_ALPHA)
+        alarm.enabled -> WakeMovePeach
+        else -> WakeMovePeach.copy(alpha = DISABLED_CONTAINER_ALPHA)
+    }
+    val challengeTextColor = when {
+        !enabled -> WakeMoveMutedText.copy(alpha = DISABLED_CONTENT_ALPHA)
+        alarm.enabled -> MaterialTheme.colorScheme.primary
+        else -> WakeMoveMutedText
     }
 
     Card(
@@ -376,6 +429,11 @@ internal fun SunriseAlarmCard(
             )
             Text(
                 text = "${alarm.challengeType.chineseLabel()} · ${alarm.targetDescription()}",
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(challengeContainerColor)
+                    .testTag("alarm_challenge_${alarm.id}")
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = challengeTextColor,
@@ -403,13 +461,8 @@ internal fun AddAlarmButton(
             disabledContentColor = WakeMoveMutedText,
         ),
     ) {
-        Icon(
-            imageVector = Icons.Rounded.Add,
-            contentDescription = null,
-        )
         Text(
-            text = "添加闹钟",
-            modifier = Modifier.padding(start = 8.dp),
+            text = "＋ 添加新闹钟",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
