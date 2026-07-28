@@ -12,11 +12,13 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.down
 import androidx.compose.ui.test.cancel
 import androidx.compose.ui.test.up
 import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.espresso.Espresso
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -48,6 +50,7 @@ import com.wakemove.android.scheduling.SchedulerHealthSnapshot
 import com.wakemove.android.scheduling.SchedulingResult
 import com.wakemove.android.ui.health.HealthIssue
 import com.wakemove.android.ui.health.HealthScreen
+import com.wakemove.android.ui.health.NotificationPermissionUiState
 import com.wakemove.android.ui.history.HistoryScreen
 import com.wakemove.android.ui.onboarding.OnboardingScreen
 import com.wakemove.android.ui.ringing.CameraChallengeScreen
@@ -90,6 +93,33 @@ class RingingFlowTest {
         composeRule.onNodeWithText("07:30").assertIsDisplayed()
         composeRule.onNodeWithText("开始挑战").performClick()
         composeRule.runOnIdle { assertTrue(challengeStarted) }
+    }
+
+    @Test
+    fun emergencyHoldAccessibilityActionStillRequiresTheFullTenSecondCountdown() {
+        var bypassed = false
+        composeRule.mainClock.autoAdvance = false
+        try {
+            setContent {
+                RingingScreen(
+                    state = ringingState(snoozeCount = 0, remainingSnoozes = 3),
+                    sensorsUnavailable = true,
+                    onSnooze = {},
+                    onStartChallenge = {},
+                    onEmergencyBypass = { bypassed = true },
+                )
+            }
+
+            composeRule.onNodeWithTag("emergency_hold")
+                .performSemanticsAction(SemanticsActions.OnClick)
+            composeRule.mainClock.advanceTimeByFrame()
+            composeRule.mainClock.advanceTimeBy(9_900)
+            composeRule.runOnIdle { assertFalse(bypassed) }
+            composeRule.mainClock.advanceTimeBy(200)
+            composeRule.runOnIdle { assertTrue(bypassed) }
+        } finally {
+            composeRule.mainClock.autoAdvance = true
+        }
     }
 
     @Test
@@ -744,6 +774,67 @@ class RingingFlowTest {
         composeRule.onNodeWithText("最近调度：成功").assertIsDisplayed()
         composeRule.onNodeWithText("下次已注册：07-28 08:30").assertIsDisplayed()
         composeRule.onNodeWithTag("repair_battery_optimization").assertIsDisplayed()
+    }
+
+    @Test
+    fun notificationRepairExplainsThenRequestsRuntimePermissionAndRefreshesHealth() {
+        var health by mutableStateOf(
+            readyHealth.copy(notifications = HealthStatus.ACTION_REQUIRED),
+        )
+        var requests = 0
+        setContent {
+            HealthScreen(
+                healthProvider = { health },
+                schedulingProvider = { SchedulerHealthSnapshot() },
+                onRepair = {},
+                notificationPermissionState = {
+                    NotificationPermissionUiState(
+                        permissionGranted = health.notifications == HealthStatus.READY,
+                        requestedBefore = false,
+                        shouldShowRationale = false,
+                    )
+                },
+                requestNotificationPermission = { callback ->
+                    requests += 1
+                    health = readyHealth
+                    callback(true)
+                },
+            )
+        }
+
+        composeRule.onNodeWithTag("repair_notifications").performClick()
+        composeRule.onNodeWithText("允许响铃通知").assertIsDisplayed()
+        composeRule.onNodeWithText("继续授权").performClick()
+
+        composeRule.runOnIdle { assertEquals(1, requests) }
+        composeRule.onNodeWithTag("repair_notifications").assertDoesNotExist()
+    }
+
+    @Test
+    fun permanentlyDeniedNotificationPermissionUsesSettingsInsteadOfRequestingAgain() {
+        var repaired: HealthIssue? = null
+        setContent {
+            HealthScreen(
+                healthProvider = {
+                    readyHealth.copy(notifications = HealthStatus.ACTION_REQUIRED)
+                },
+                schedulingProvider = { SchedulerHealthSnapshot() },
+                onRepair = { repaired = it },
+                notificationPermissionState = {
+                    NotificationPermissionUiState(
+                        permissionGranted = false,
+                        requestedBefore = true,
+                        shouldShowRationale = false,
+                    )
+                },
+                requestNotificationPermission = { error("must not request permanently denied") },
+            )
+        }
+
+        composeRule.onNodeWithTag("repair_notifications").performClick()
+
+        composeRule.runOnIdle { assertEquals(HealthIssue.NOTIFICATIONS, repaired) }
+        composeRule.onNodeWithText("允许响铃通知").assertDoesNotExist()
     }
 
     @Test

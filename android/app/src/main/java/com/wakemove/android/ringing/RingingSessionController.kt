@@ -31,6 +31,7 @@ data class RingingUiState(
     val session: RingingSession? = null,
     val soundState: AlarmSoundState = AlarmSoundState.STOPPED,
     val remainingSnoozes: Int = 0,
+    val recoverableError: String? = null,
 )
 
 class RingingSessionController(
@@ -54,20 +55,41 @@ class RingingSessionController(
         val active = repository.activeSession()
         val session = when {
             active == null -> {
-                val now = clock.instant()
-                RingingSession(
-                    id = sessionIdFactory(),
-                    alarmId = alarm.id,
-                    scheduledAt = now,
-                    startedAt = now,
-                    snoozeCount = 0,
-                    challengeType = alarm.challengeType,
-                    targetCount = alarm.targetCount,
-                    status = SessionStatus.RINGING,
-                ).also { repository.saveSession(it) }
+                newSession(alarm).also { repository.saveSession(it) }
             }
 
-            active.alarmId != alarm.id -> return false
+            active.alarmId != alarm.id -> {
+                val now = clock.instant()
+                val previousAlarm = repository.getAlarm(active.alarmId)
+                val previousNextAt = previousAlarm?.let { nextRepeatAt(it, now) }
+                val previousTerminal = active.copy(
+                    status = SessionStatus.MISSED,
+                    pendingScheduleAt = previousNextAt,
+                )
+                val previousAlarmUpdate = previousAlarm
+                    ?.takeIf { it.repeatDays.isEmpty() }
+                    ?.copy(enabled = false, updatedAt = now)
+                val previousEvent = AlarmEvent(
+                    id = active.id,
+                    alarmId = active.alarmId,
+                    scheduledAt = active.scheduledAt,
+                    startedAt = active.startedAt,
+                    finishedAt = now,
+                    challengeType = active.challengeType,
+                    snoozeCount = active.snoozeCount,
+                    result = AlarmEventResult.MISSED,
+                )
+                val next = newSession(alarm)
+                val replaced = repository.replaceActiveSession(
+                    previous = previousTerminal,
+                    expectedStatuses = setOf(SessionStatus.RINGING, SessionStatus.SNOOZED),
+                    previousEvent = previousEvent,
+                    previousAlarmUpdate = previousAlarmUpdate,
+                    next = next,
+                )
+                if (!replaced) return false
+                next
+            }
             active.status == SessionStatus.SNOOZED -> {
                 val ringing = active.copy(
                     status = SessionStatus.RINGING,
@@ -97,6 +119,9 @@ class RingingSessionController(
         audioPlayer.play(alarm.soundId)
         if (alarm.vibrationEnabled) vibrator.start()
         mutableState.value = stateFor(alarm, session)
+        if (active != null && active.alarmId != alarm.id) {
+            pendingScheduleRecovery.recover(active.id)
+        }
         true
     }
 
@@ -123,12 +148,24 @@ class RingingSessionController(
             return false
         }
 
-        mutableState.value = stateFor(alarm, snoozed)
-        try {
-            pendingScheduleRecovery.recover(snoozed.id)
-        } finally {
-            stopAlerting(alarm, snoozed)
+        val recovery = pendingScheduleRecovery.recover(snoozed.id)
+        if (recovery.failureCount > 0) {
+            val restored = session.copy(pendingScheduleAt = null)
+            repository.transitionSession(
+                session = restored,
+                expectedStatuses = setOf(SessionStatus.SNOOZED),
+            )
+            mutableState.value = stateFor(
+                alarm = alarm,
+                session = restored,
+                recoverableError = "贪睡注册失败，闹钟会继续响铃，请重试",
+            )
+            return false
         }
+        val persisted = repository.activeSession()
+            ?.takeIf { it.id == snoozed.id && it.status == SessionStatus.SNOOZED }
+            ?: snoozed.copy(pendingScheduleAt = null)
+        stopAlerting(alarm, persisted)
         true
     }
 
@@ -210,14 +247,33 @@ class RingingSessionController(
         mutableState.value = stateFor(alarm, session)
     }
 
-    private fun stateFor(alarm: Alarm, session: RingingSession) = RingingUiState(
+    private fun stateFor(
+        alarm: Alarm,
+        session: RingingSession,
+        recoverableError: String? = null,
+    ) = RingingUiState(
         alarm = alarm,
         session = session,
         soundState = audioPlayer.soundState,
         remainingSnoozes = (
             effectiveSnoozeLimit(alarm) - session.snoozeCount
         ).coerceAtLeast(0),
+        recoverableError = recoverableError,
     )
+
+    private fun newSession(alarm: Alarm): RingingSession {
+        val now = clock.instant()
+        return RingingSession(
+            id = sessionIdFactory(),
+            alarmId = alarm.id,
+            scheduledAt = now,
+            startedAt = now,
+            snoozeCount = 0,
+            challengeType = alarm.challengeType,
+            targetCount = alarm.targetCount,
+            status = SessionStatus.RINGING,
+        )
+    }
 
     private fun effectiveSnoozeLimit(alarm: Alarm): Int =
         alarm.snoozeLimit.coerceIn(0, MAX_SNOOZE_COUNT)

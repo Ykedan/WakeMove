@@ -2,6 +2,7 @@ package com.wakemove.android.health
 
 import android.Manifest
 import android.app.NotificationManager
+import android.app.NotificationChannel
 import android.content.Context
 import android.content.pm.PackageManager
 import org.junit.Assert.assertEquals
@@ -37,6 +38,13 @@ class AndroidHealthServiceTest {
         shadowOf(context.getSystemService(NotificationManager::class.java))
             .setNotificationsEnabled(true)
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(
+                "ringing_alarms",
+                "Ringing alarms",
+                NotificationManager.IMPORTANCE_HIGH,
+            ),
+        )
     }
 
     @Test
@@ -45,6 +53,7 @@ class AndroidHealthServiceTest {
             context = context,
             fullScreenIntentAllowed = { true },
             batteryOptimizationIgnored = { true },
+            speechRecognitionAvailable = { true },
         ).snapshot()
 
         assertEquals(HealthStatus.READY, snapshot.exactAlarm)
@@ -52,6 +61,8 @@ class AndroidHealthServiceTest {
         assertEquals(HealthStatus.READY, snapshot.fullScreenIntent)
         assertEquals(HealthStatus.READY, snapshot.camera)
         assertEquals(HealthStatus.READY, snapshot.microphone)
+        assertEquals(HealthStatus.READY, snapshot.speechRecognition)
+        assertEquals(HealthStatus.READY, snapshot.notificationChannel)
         assertEquals(HealthStatus.READY, snapshot.batteryOptimization)
         assertTrue(snapshot.canScheduleAlarms)
     }
@@ -70,6 +81,7 @@ class AndroidHealthServiceTest {
             context = context,
             fullScreenIntentAllowed = { false },
             batteryOptimizationIgnored = { false },
+            speechRecognitionAvailable = { false },
         ).snapshot()
 
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.exactAlarm)
@@ -77,8 +89,45 @@ class AndroidHealthServiceTest {
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.fullScreenIntent)
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.camera)
         assertEquals(HealthStatus.UNAVAILABLE, snapshot.microphone)
+        assertEquals(HealthStatus.UNAVAILABLE, snapshot.speechRecognition)
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.batteryOptimization)
         assertFalse(snapshot.canScheduleAlarms)
+    }
+
+    @Test
+    fun `missing or disabled alarm channel is action required`() {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.deleteNotificationChannel("ringing_alarms")
+        val missing = AndroidHealthService(
+            context = context,
+            speechRecognitionAvailable = { true },
+        ).snapshot()
+        assertEquals(HealthStatus.ACTION_REQUIRED, missing.notificationChannel)
+        assertFalse(missing.canScheduleAlarms)
+
+        manager.createNotificationChannel(
+            NotificationChannel(
+                "ringing_alarms",
+                "Ringing alarms",
+                NotificationManager.IMPORTANCE_NONE,
+            ),
+        )
+        val disabled = AndroidHealthService(
+            context = context,
+            speechRecognitionAvailable = { true },
+        ).snapshot()
+        assertEquals(HealthStatus.ACTION_REQUIRED, disabled.notificationChannel)
+    }
+
+    @Test
+    fun `recognizer absence is unavailable even with microphone permission`() {
+        val snapshot = AndroidHealthService(
+            context = context,
+            speechRecognitionAvailable = { false },
+        ).snapshot()
+
+        assertEquals(HealthStatus.READY, snapshot.microphone)
+        assertEquals(HealthStatus.UNAVAILABLE, snapshot.speechRecognition)
     }
 
     @Test

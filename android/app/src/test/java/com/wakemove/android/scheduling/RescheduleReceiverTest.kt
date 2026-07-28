@@ -141,6 +141,48 @@ class RescheduleReceiverTest {
     }
 
     @Test
+    fun `exact alarm permission grant restores regular and pending schedules`() {
+        val order = mutableListOf<String>()
+        val executor = QueuedExecutor()
+        val receiver = RescheduleReceiver(
+            schedulerProvider = { RecordingScheduler(order = order) },
+            executor = executor,
+            pendingRecovery = { order += "pending" },
+            exactAlarmAllowed = { true },
+        )
+        val context: Context = RuntimeEnvironment.getApplication()
+        val action = AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED
+        context.registerReceiver(receiver, IntentFilter(action), Context.RECEIVER_EXPORTED)
+
+        context.sendBroadcast(Intent(action))
+        shadowOf(Looper.getMainLooper()).idle()
+        executor.runNext()
+
+        assertEquals(listOf("regular", "pending"), order)
+    }
+
+    @Test
+    fun `exact alarm permission revocation does not attempt false recovery`() {
+        val order = mutableListOf<String>()
+        val executor = QueuedExecutor()
+        val receiver = RescheduleReceiver(
+            schedulerProvider = { RecordingScheduler(order = order) },
+            executor = executor,
+            pendingRecovery = { order += "pending" },
+            exactAlarmAllowed = { false },
+        )
+        val context: Context = RuntimeEnvironment.getApplication()
+        val action = AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED
+        context.registerReceiver(receiver, IntentFilter(action), Context.RECEIVER_EXPORTED)
+
+        context.sendBroadcast(Intent(action))
+        shadowOf(Looper.getMainLooper()).idle()
+        executor.runNext()
+
+        assertTrue(order.isEmpty())
+    }
+
+    @Test
     @Suppress("DEPRECATION")
     fun `timezone change broadcast recalculates alarm in the current system zone`() {
         val originalTimeZone = TimeZone.getDefault()

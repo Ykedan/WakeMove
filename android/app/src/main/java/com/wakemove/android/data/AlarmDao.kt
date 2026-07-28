@@ -93,6 +93,35 @@ abstract class AlarmDao {
         return true
     }
 
+    @Transaction
+    open suspend fun replaceActiveSession(
+        previous: RingingSessionEntity,
+        expectedStatuses: Set<String>,
+        previousEvent: AlarmEventEntity,
+        previousAlarmUpdate: AlarmEntity?,
+        next: RingingSessionEntity,
+    ): Boolean {
+        val current = getSession(previous.id) ?: return false
+        if (current.status !in expectedStatuses) return false
+        saveSession(previous)
+        appendEvent(previousEvent)
+        if (previousAlarmUpdate != null) upsertAlarm(previousAlarmUpdate)
+        saveSession(next)
+        return true
+    }
+
+    @Transaction
+    open suspend fun expireOneShot(
+        alarm: AlarmEntity,
+        event: AlarmEventEntity,
+    ): Boolean {
+        val current = getAlarm(alarm.id) ?: return false
+        if (!current.enabled || current.repeatDays != 0) return false
+        upsertAlarm(alarm)
+        appendEvent(event)
+        return true
+    }
+
     @Query(
         """
         SELECT * FROM alarm_events

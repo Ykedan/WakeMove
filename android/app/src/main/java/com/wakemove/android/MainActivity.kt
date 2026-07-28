@@ -8,6 +8,7 @@ import androidx.core.content.edit
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.wakemove.android.ringing.RingingService
@@ -18,6 +19,8 @@ import com.wakemove.android.ui.onboarding.OnboardingScreen
 import com.wakemove.android.ui.theme.WakeMoveTheme
 
 class MainActivity : ComponentActivity() {
+    private var ringingOnlyLaunch = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         applyRingingWindowFlags(intent)
         super.onCreate(savedInstanceState)
@@ -29,6 +32,9 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(preferences.getBoolean(KEY_ONBOARDING_COMPLETE, false))
                 }
                 val ringingState by dependencies.ringingSessionController.state.collectAsState()
+                LaunchedEffect(ringingState.session?.status) {
+                    syncRingingWindow(ringingState.session?.status)
+                }
                 if (onboardingComplete ||
                     ringingState.session?.status == SessionStatus.RINGING
                 ) {
@@ -60,8 +66,17 @@ class MainActivity : ComponentActivity() {
 
     private fun applyRingingWindowFlags(intent: Intent) {
         if (intent.action != RingingService.ACTION_SHOW_RINGING) return
+        ringingOnlyLaunch = true
         setShowWhenLocked(true)
         setTurnScreenOn(true)
+    }
+
+    internal fun syncRingingWindow(status: SessionStatus?) {
+        if (status == SessionStatus.RINGING) return
+        setShowWhenLocked(false)
+        setTurnScreenOn(false)
+        if (ringingOnlyLaunch && !isFinishing) finish()
+        ringingOnlyLaunch = false
     }
 
     private companion object {

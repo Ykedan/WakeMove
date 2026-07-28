@@ -6,11 +6,12 @@ import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.health.HealthSnapshot
-import com.wakemove.android.health.HealthStatus
 import com.wakemove.android.scheduling.AlarmScheduler
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeParseException
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +31,8 @@ data class AlarmEditorUiState(
     val challengeType: ChallengeType = ChallengeType.SQUAT,
     val targetCount: Int = 10,
     val health: HealthSnapshot,
+    val validationInstant: Instant = Instant.EPOCH,
+    val validationZone: ZoneId = ZoneId.systemDefault(),
 ) {
     val parsedTime: LocalTime?
         get() = try {
@@ -41,22 +44,31 @@ data class AlarmEditorUiState(
     val healthMessage: String?
         get() = when {
             !health.canScheduleAlarms -> "请先完成健康检查"
-            challengeType == ChallengeType.VOICE_PHRASE &&
-                health.microphone != HealthStatus.READY ->
-                "语音短语需要麦克风权限"
-            challengeType != ChallengeType.VOICE_PHRASE &&
-                health.camera != HealthStatus.READY ->
-                "动作挑战需要相机权限"
             else -> null
+        }
+
+    val scheduleMessage: String?
+        get() {
+            val time = parsedTime ?: return null
+            if (selectedDays.isNotEmpty()) return null
+            val now = ZonedDateTime.ofInstant(validationInstant, validationZone)
+            val occurrence = ZonedDateTime.of(now.toLocalDate(), time, validationZone)
+            return if (occurrence.isAfter(now)) null else "单次闹钟必须选择未来时间"
         }
 
     val canSave: Boolean
         get() = parsedTime != null &&
             healthMessage == null &&
+            scheduleMessage == null &&
             (challengeType == ChallengeType.VOICE_PHRASE || targetCount > 0)
 
     companion object {
-        fun fromAlarm(alarm: Alarm, health: HealthSnapshot) = AlarmEditorUiState(
+        fun fromAlarm(
+            alarm: Alarm,
+            health: HealthSnapshot,
+            validationInstant: Instant = Instant.now(),
+            validationZone: ZoneId = ZoneId.systemDefault(),
+        ) = AlarmEditorUiState(
             draftId = alarm.id,
             alarmId = alarm.id,
             timeText = alarm.time.toString(),
@@ -65,6 +77,8 @@ data class AlarmEditorUiState(
             challengeType = alarm.challengeType,
             targetCount = alarm.targetCount,
             health = health,
+            validationInstant = validationInstant,
+            validationZone = validationZone,
         )
     }
 }
@@ -127,6 +141,7 @@ class AlarmEditorViewModel(
     private val scheduler: AlarmScheduler,
     private val healthProvider: () -> HealthSnapshot,
     private val instantProvider: () -> Instant = Instant::now,
+    private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
     private val idProvider: () -> String = { UUID.randomUUID().toString() },
 ) : ViewModel() {
     private val saveMutex = Mutex()
@@ -139,11 +154,18 @@ class AlarmEditorViewModel(
     fun newState(): AlarmEditorUiState = AlarmEditorUiState(
         draftId = idProvider(),
         health = healthProvider(),
+        validationInstant = instantProvider(),
+        validationZone = zoneProvider(),
     )
 
     suspend fun stateFor(alarmId: String): AlarmEditorUiState? =
         repository.getAlarm(alarmId)?.let { alarm ->
-            AlarmEditorUiState.fromAlarm(alarm, healthProvider())
+            AlarmEditorUiState.fromAlarm(
+                alarm = alarm,
+                health = healthProvider(),
+                validationInstant = instantProvider(),
+                validationZone = zoneProvider(),
+            )
         }
 
     fun submit(state: AlarmEditorUiState, onSuccess: (Alarm) -> Unit) {
@@ -182,10 +204,16 @@ class AlarmEditorViewModel(
         if (completedFingerprint == state) {
             return@withLock checkNotNull(completedAlarm)
         }
-        val currentState = state.copy(health = healthProvider())
+        val currentState = state.copy(
+            health = healthProvider(),
+            validationInstant = instantProvider(),
+            validationZone = zoneProvider(),
+        )
         if (!currentState.canSave) {
             throw AlarmMutationException(
-                currentState.healthMessage ?: "闹钟设置无效",
+                currentState.healthMessage
+                    ?: currentState.scheduleMessage
+                    ?: "闹钟设置无效",
             )
         }
         val now = instantProvider()

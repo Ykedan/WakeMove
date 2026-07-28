@@ -186,6 +186,13 @@ fun AlarmEditorScreen(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
+            state.scheduleMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             operationState.errorMessage?.let { message ->
                 Text(
                     text = message,

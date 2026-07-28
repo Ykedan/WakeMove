@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -30,6 +32,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -54,6 +62,7 @@ fun RingingScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFF111827))
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 36.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -83,7 +92,14 @@ fun RingingScreen(
             color = Color(0xFFD1D5DB),
             modifier = Modifier.padding(top = 8.dp),
         )
-        Spacer(Modifier.weight(1f))
+        state.recoverableError?.let {
+            Text(
+                text = it,
+                color = Color(0xFFFCA5A5),
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+        Spacer(Modifier.height(32.dp))
         Button(
             onClick = onStartChallenge,
             modifier = Modifier
@@ -138,7 +154,9 @@ private fun EmergencyHoldButton(
     modifier: Modifier = Modifier,
 ) {
     var progress by remember { mutableFloatStateOf(0f) }
-    var holding by remember { mutableStateOf(false) }
+    var pointerHolding by remember { mutableStateOf(false) }
+    var accessibilityHolding by remember { mutableStateOf(false) }
+    val holding = pointerHolding || accessibilityHolding
     LaunchedEffect(holding) {
         if (!holding) {
             progress = 0f
@@ -149,7 +167,10 @@ private fun EmergencyHoldButton(
             if (!holding) return@LaunchedEffect
             progress = (step + 1).toFloat() / EMERGENCY_HOLD_STEPS
         }
-        if (holding) onComplete()
+        if (holding) {
+            accessibilityHolding = false
+            onComplete()
+        }
     }
     Column(
         modifier = modifier
@@ -165,11 +186,24 @@ private fun EmergencyHoldButton(
                 .testTag("emergency_hold")
                 .semantics {
                     contentDescription = "连续按住十秒紧急停止"
+                    role = Role.Button
+                    stateDescription = if (holding) {
+                        "倒计时 ${(progress * 10).toInt()} 秒，激活可取消"
+                    } else {
+                        "未开始，激活后需要等待十秒"
+                    }
+                    liveRegion = LiveRegionMode.Polite
+                    onClick(
+                        label = if (holding) "取消十秒倒计时" else "开始十秒倒计时",
+                    ) {
+                        accessibilityHolding = !accessibilityHolding
+                        true
+                    }
                 }
                 .pointerInput(onComplete) {
                     awaitEachGesture {
                         val initialPointer = awaitFirstDown(requireUnconsumed = false).id
-                        holding = true
+                        pointerHolding = true
                         try {
                             var initialStillPressed: Boolean
                             do {
@@ -179,7 +213,7 @@ private fun EmergencyHoldButton(
                                 initialStillPressed = initialChange?.pressed == true
                             } while (initialStillPressed)
                         } finally {
-                            holding = false
+                            pointerHolding = false
                         }
                     }
                 },

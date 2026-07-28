@@ -14,6 +14,7 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -23,6 +24,24 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class PoseLandmarkerAdapterTest {
+    @Test
+    fun `owned frame gate admits one frame and closes dropped or completed resources`() {
+        val gate = OwnedFrameGate()
+        val first = CloseTracker()
+        val dropped = CloseTracker()
+
+        assertTrue(gate.tryAcquire(first))
+        assertFalse(gate.tryAcquire(dropped))
+        assertTrue(dropped.closed)
+        assertFalse(first.closed)
+
+        gate.release()
+        assertTrue(first.closed)
+        assertTrue(gate.tryAcquire(CloseTracker()))
+        gate.close()
+        assertFalse(gate.hasInFlight)
+    }
+
     @Test
     fun synchronous_camera_provider_failure_preserves_guidance_and_timed_fallback() {
         val context = RuntimeEnvironment.getApplication()
@@ -67,6 +86,13 @@ class PoseLandmarkerAdapterTest {
 
         controller.close()
         assertTrue(platform.executor.isShutdown)
+    }
+}
+
+private class CloseTracker : AutoCloseable {
+    var closed = false
+    override fun close() {
+        closed = true
     }
 }
 

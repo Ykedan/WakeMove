@@ -146,8 +146,8 @@ fun RingingFlowHost(
                 )
             }
             HealthStatus.UNAVAILABLE -> {
-                route = if (health.camera == HealthStatus.UNAVAILABLE &&
-                    health.microphone == HealthStatus.UNAVAILABLE
+                route = if (health.statusFor(HealthIssue.CAMERA) == HealthStatus.UNAVAILABLE &&
+                    health.statusFor(HealthIssue.MICROPHONE) == HealthStatus.UNAVAILABLE
                 ) {
                     RingingRoute.RINGING
                 } else {
@@ -220,7 +220,10 @@ fun RingingFlowHost(
         RingingRoute.RINGING -> RingingScreen(
             state = state,
             sensorsUnavailable = health.camera != HealthStatus.READY &&
-                health.microphone != HealthStatus.READY,
+                (
+                    health.microphone != HealthStatus.READY ||
+                        health.speechRecognition != HealthStatus.READY
+                    ),
             onSnooze = { scope.launch { runCatching { controller.snooze() } } },
             onStartChallenge = {
                 startChallenge(
@@ -277,7 +280,8 @@ fun RingingFlowHost(
             alarmTime = alarm.time.format(DateTimeFormatter.ofPattern("HH:mm")),
             alarmLabel = alarm.label,
             remainingSnoozes = state.remainingSnoozes,
-            available = health.microphone == HealthStatus.READY,
+            available = health.microphone == HealthStatus.READY &&
+                health.speechRecognition == HealthStatus.READY,
             controllerFactory = speechControllerFactory,
             phraseProvider = speechPhraseProvider,
             onCompleted = {
@@ -402,11 +406,14 @@ private fun RingingRoute.healthIssue(): HealthIssue = when (this) {
 
 private fun HealthSnapshot.statusFor(issue: HealthIssue): HealthStatus = when (issue) {
     HealthIssue.CAMERA -> camera
-    HealthIssue.MICROPHONE -> microphone
+    HealthIssue.MICROPHONE ->
+        if (microphone != HealthStatus.READY) microphone else speechRecognition
     HealthIssue.EXACT_ALARM -> exactAlarm
     HealthIssue.NOTIFICATIONS -> notifications
+    HealthIssue.NOTIFICATION_CHANNEL -> notificationChannel
     HealthIssue.FULL_SCREEN_INTENT -> fullScreenIntent
     HealthIssue.BATTERY_OPTIMIZATION -> batteryOptimization
+    HealthIssue.SPEECH_RECOGNITION -> speechRecognition
 }
 
 private fun HealthIssue.permission(): String = when (this) {

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.AlarmEvent
+import com.wakemove.android.domain.AlarmEventResult
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.domain.RingingSession
@@ -42,6 +43,10 @@ class AndroidAlarmSchedulerTest {
     fun setUp() {
         context = RuntimeEnvironment.getApplication()
         alarmManager = context.getSystemService(AlarmManager::class.java)
+        context.getSharedPreferences("wakemove_scheduler_diagnostics", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
     }
 
@@ -143,7 +148,16 @@ class AndroidAlarmSchedulerTest {
             time = LocalTime.of(7, 0),
             repeatDays = emptySet(),
         )
-        val scheduler = scheduler(listOf(repeating, futureOneShot, disabled, expiredOneShot))
+        val repository = FakeAlarmRepository(
+            listOf(repeating, futureOneShot, disabled, expiredOneShot),
+        )
+        val scheduler = AndroidAlarmScheduler(
+            context = context,
+            alarmManager = alarmManager,
+            repository = repository,
+            clock = Clock.fixed(now, zone),
+            zoneProvider = { zone },
+        )
 
         scheduler.rescheduleAll()
 
@@ -162,6 +176,14 @@ class AndroidAlarmSchedulerTest {
             ),
             scheduled.map { it.triggerAtMs }.toSet(),
         )
+        assertEquals(false, repository.alarms.single { it.id == expiredOneShot.id }.enabled)
+        assertEquals(
+            expiredOneShot.id to AlarmEventResult.MISSED,
+            repository.events.single().let { it.alarmId to it.result },
+        )
+
+        scheduler.rescheduleAll()
+        assertEquals(1, repository.events.size)
     }
 
     @Test
@@ -176,6 +198,54 @@ class AndroidAlarmSchedulerTest {
         assertTrue(shadowOf(alarmManager).scheduledAlarms.isEmpty())
         assertEquals(SchedulingResult.FAILURE, scheduler.healthSnapshot().lastResult)
     }
+
+    @Test
+    fun `scheduler diagnostics survive process reconstruction and cancellation`() {
+        val alarm = alarm(id = "durable-diagnostics")
+        val trigger = now.plusSeconds(600)
+        scheduler(listOf(alarm)).schedule(alarm, trigger)
+
+        val reconstructed = scheduler(listOf(alarm))
+        assertEquals(
+            SchedulerHealthSnapshot(SchedulingResult.SUCCESS, trigger),
+            reconstructed.healthSnapshot(),
+        )
+
+        reconstructed.cancel(alarm.id)
+        assertEquals(
+            SchedulerHealthSnapshot(SchedulingResult.SUCCESS, null),
+            scheduler(listOf(alarm)).healthSnapshot(),
+        )
+    }
+
+    @Test
+    fun `one shot from a previous local date is missed instead of rolling forward`() =
+        runBlocking {
+            val nextDayNow = Instant.parse("2026-07-25T00:00:00Z")
+            val oneShot = alarm(
+                id = "previous-day",
+                time = LocalTime.of(9, 0),
+                repeatDays = emptySet(),
+                updatedAt = Instant.parse("2026-07-24T00:00:00Z"),
+            )
+            val repository = FakeAlarmRepository(listOf(oneShot))
+            val scheduler = AndroidAlarmScheduler(
+                context = context,
+                alarmManager = alarmManager,
+                repository = repository,
+                clock = Clock.fixed(nextDayNow, zone),
+                zoneProvider = { zone },
+            )
+
+            scheduler.rescheduleAll()
+
+            assertTrue(shadowOf(alarmManager).scheduledAlarms.isEmpty())
+            assertEquals(false, repository.alarms.single().enabled)
+            assertEquals(
+                Instant.parse("2026-07-24T01:00:00Z"),
+                repository.events.single().scheduledAt,
+            )
+        }
 
     @Test
     fun `alarm receiver forwards the alarm id to the foreground ringing service`() {
@@ -209,6 +279,7 @@ class AndroidAlarmSchedulerTest {
         time: LocalTime = LocalTime.of(7, 30),
         repeatDays: Set<DayOfWeek> = setOf(DayOfWeek.FRIDAY),
         enabled: Boolean = true,
+        updatedAt: Instant = Instant.parse("2026-07-24T00:00:00Z"),
     ) = Alarm(
         id = id,
         time = time,
@@ -220,13 +291,15 @@ class AndroidAlarmSchedulerTest {
         challengeType = ChallengeType.SQUAT,
         targetCount = 10,
         createdAt = Instant.parse("2026-01-01T00:00:00Z"),
-        updatedAt = Instant.parse("2026-01-01T00:00:00Z"),
+        updatedAt = updatedAt,
     )
 }
 
 private class FakeAlarmRepository(
-    private val alarms: List<Alarm>,
+    alarms: List<Alarm>,
 ) : AlarmRepository {
+    val alarms = alarms.toMutableList()
+    val events = mutableListOf<AlarmEvent>()
     override fun observeAlarms(): Flow<List<Alarm>> = flowOf(alarms)
 
     override suspend fun upsertAlarm(alarm: Alarm) = error("not used")
@@ -245,6 +318,14 @@ private class FakeAlarmRepository(
         event: AlarmEvent?,
         alarmUpdate: Alarm?,
     ): Boolean = error("not used")
+
+    override suspend fun expireOneShot(alarm: Alarm, event: AlarmEvent): Boolean {
+        val index = alarms.indexOfFirst { it.id == alarm.id && it.enabled }
+        if (index < 0) return false
+        alarms[index] = alarm.copy(enabled = false, updatedAt = checkNotNull(event.finishedAt))
+        events += event
+        return true
+    }
 
     override suspend fun appendEvent(event: AlarmEvent) = error("not used")
 

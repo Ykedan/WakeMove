@@ -1,5 +1,6 @@
 package com.wakemove.android.scheduling
 
+import android.app.AlarmManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -25,15 +26,21 @@ class RescheduleReceiver() : BroadcastReceiver() {
             ?: error("Application must implement SchedulingDependencies")
         dependencies.pendingScheduleRecovery.recover()
     }
+    private var exactAlarmAllowed: (Context) -> Boolean = { context ->
+        android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S ||
+            context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true
+    }
 
     internal constructor(
         schedulerProvider: (Context) -> AlarmScheduler,
         executor: Executor,
         pendingRecovery: suspend (Context) -> Unit = {},
+        exactAlarmAllowed: (Context) -> Boolean = { true },
     ) : this() {
         this.schedulerProvider = schedulerProvider
         this.executor = executor
         this.pendingRecovery = pendingRecovery
+        this.exactAlarmAllowed = exactAlarmAllowed
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -43,6 +50,12 @@ class RescheduleReceiver() : BroadcastReceiver() {
         try {
             executor.execute {
                 try {
+                    if (intent.action ==
+                        AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED &&
+                        !exactAlarmAllowed(context)
+                    ) {
+                        return@execute
+                    }
                     runBlocking {
                         try {
                             schedulerProvider(context).rescheduleAll()
@@ -73,6 +86,7 @@ class RescheduleReceiver() : BroadcastReceiver() {
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
+            AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED,
         )
 
         private val RECOVERY_EXECUTOR = Executors.newSingleThreadExecutor { runnable ->

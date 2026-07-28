@@ -55,6 +55,34 @@ class RoomAlarmRepository(
         )
     }
 
+    override suspend fun replaceActiveSession(
+        previous: RingingSession,
+        expectedStatuses: Set<SessionStatus>,
+        previousEvent: AlarmEvent,
+        previousAlarmUpdate: Alarm?,
+        next: RingingSession,
+    ): Boolean {
+        require(previous.id != next.id) { "Replacement sessions must have distinct ids" }
+        require(previous.alarmId == previousEvent.alarmId)
+        return dao.replaceActiveSession(
+            previous = previous.toEntity(),
+            expectedStatuses = expectedStatuses.mapTo(mutableSetOf(), SessionStatus::name),
+            previousEvent = previousEvent.toEntity(),
+            previousAlarmUpdate = previousAlarmUpdate?.toEntity(),
+            next = next.toEntity(),
+        )
+    }
+
+    override suspend fun expireOneShot(
+        alarm: Alarm,
+        event: AlarmEvent,
+    ): Boolean {
+        require(alarm.repeatDays.isEmpty())
+        require(!alarm.enabled)
+        require(event.alarmId == alarm.id && event.result == AlarmEventResult.MISSED)
+        return dao.expireOneShot(alarm.toEntity(), event.toEntity())
+    }
+
     override suspend fun pendingSchedules(): List<PendingAlarmSchedule> =
         dao.pendingSessions().map { session ->
             PendingAlarmSchedule(

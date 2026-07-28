@@ -312,6 +312,60 @@ class RoomAlarmRepositoryTest {
         assertEquals(emptyList<AlarmEvent>(), repository.recentEvents())
     }
 
+    @Test
+    fun `active collision replacement commits missed event alarm update and next session atomically`() =
+        runBlocking {
+            val firstAlarm = alarm(id = "first", repeatDays = emptySet())
+            val secondAlarm = alarm(id = "second")
+            val active = session(id = "first-session", alarmId = firstAlarm.id)
+            val terminal = active.copy(status = SessionStatus.MISSED)
+            val next = session(id = "second-session", alarmId = secondAlarm.id)
+            val missed = event(
+                id = active.id,
+                alarmId = firstAlarm.id,
+                scheduledAt = active.scheduledAt,
+            ).copy(result = AlarmEventResult.MISSED)
+            repository.upsertAlarm(firstAlarm)
+            repository.upsertAlarm(secondAlarm)
+            repository.saveSession(active)
+
+            assertEquals(
+                true,
+                repository.replaceActiveSession(
+                    previous = terminal,
+                    expectedStatuses = setOf(SessionStatus.RINGING),
+                    previousEvent = missed,
+                    previousAlarmUpdate = firstAlarm.copy(enabled = false),
+                    next = next,
+                ),
+            )
+
+            assertEquals(next, repository.activeSession())
+            assertEquals(false, repository.getAlarm(firstAlarm.id)?.enabled)
+            assertEquals(listOf(missed), repository.recentEvents())
+        }
+
+    @Test
+    fun `expired one shot disable and missed event are idempotent`() = runBlocking {
+        val oneShot = alarm(id = "expired", repeatDays = emptySet())
+        val finishedAt = Instant.parse("2026-07-27T00:00:00Z")
+        val missed = event(
+            id = "missed:expired",
+            alarmId = oneShot.id,
+            scheduledAt = Instant.parse("2026-07-26T23:30:00Z"),
+            startedAt = null,
+            finishedAt = finishedAt,
+        ).copy(result = AlarmEventResult.MISSED)
+        repository.upsertAlarm(oneShot)
+        val disabled = oneShot.copy(enabled = false, updatedAt = finishedAt)
+
+        assertEquals(true, repository.expireOneShot(disabled, missed))
+        assertEquals(false, repository.expireOneShot(disabled, missed))
+
+        assertEquals(false, repository.getAlarm(oneShot.id)?.enabled)
+        assertEquals(listOf(missed), repository.recentEvents())
+    }
+
     private fun alarm(
         id: String = "alarm-1",
         time: LocalTime = LocalTime.of(7, 30),

@@ -98,7 +98,7 @@ class RingingSessionControllerTest {
     }
 
     @Test
-    fun `failed snooze registration remains pending and retries`() = runBlocking {
+    fun `failed snooze registration keeps the alarm ringing and can retry`() = runBlocking {
         val repository = FakeAlarmRepository(alarm)
         val scheduler = FakeAlarmScheduler(fail = true)
         val audioPlayer = FakeAlarmAudioPlayer()
@@ -106,20 +106,85 @@ class RingingSessionControllerTest {
         val controller = controller(repository, audioPlayer, vibrator, scheduler)
         controller.start(alarm.id)
 
-        assertTrue(controller.snooze())
+        assertFalse(controller.snooze())
 
         val trigger = now.plusSeconds(5 * 60L)
-        assertEquals(trigger, repository.session?.pendingScheduleAt)
+        assertEquals(SessionStatus.RINGING, repository.session?.status)
+        assertEquals(0, repository.session?.snoozeCount)
+        assertEquals(null, repository.session?.pendingScheduleAt)
         assertEquals(1, scheduler.attempts)
-        assertEquals(AlarmSoundState.STOPPED, audioPlayer.soundState)
-        assertEquals(1, vibrator.stopCount)
+        assertEquals(AlarmSoundState.PLAYING, audioPlayer.soundState)
+        assertEquals(0, vibrator.stopCount)
+        assertNotNull(controller.state.value.recoverableError)
 
         scheduler.fail = false
-        PendingScheduleRecovery(repository, scheduler).recover()
+        assertTrue(controller.snooze())
 
         assertEquals(2, scheduler.attempts)
         assertEquals(listOf(alarm to trigger), scheduler.scheduled)
+        assertEquals(SessionStatus.SNOOZED, repository.session?.status)
         assertEquals(null, repository.session?.pendingScheduleAt)
+        assertEquals(AlarmSoundState.STOPPED, audioPlayer.soundState)
+        assertEquals(1, vibrator.stopCount)
+    }
+
+    @Test
+    fun `overlapping ringing delivery atomically records missed and starts the new alarm`() =
+        runBlocking {
+            val second = alarm().copy(id = "second-alarm", label = "Second")
+            val repository = CollisionAlarmRepository(listOf(alarm, second))
+            val audioPlayer = FakeAlarmAudioPlayer()
+            val vibrator = FakeAlarmVibrator()
+            val scheduler = FakeAlarmScheduler()
+            val controller = RingingSessionController(
+                repository = repository,
+                audioPlayer = audioPlayer,
+                vibrator = vibrator,
+                scheduler = scheduler,
+                clock = clock,
+                zoneProvider = { zone },
+                sessionIdFactory = sequenceOf("first-session", "second-session").iterator()::next,
+            )
+
+            assertTrue(controller.start(alarm.id))
+            assertTrue(controller.start(second.id))
+
+            assertEquals(second.id, controller.state.value.session?.alarmId)
+            assertEquals(SessionStatus.RINGING, controller.state.value.session?.status)
+            assertEquals(
+                listOf(alarm.id to AlarmEventResult.MISSED),
+                repository.events.map { it.alarmId to it.result },
+            )
+            assertEquals(SessionStatus.MISSED, repository.sessions["first-session"]?.status)
+            assertEquals(SessionStatus.RINGING, repository.sessions["second-session"]?.status)
+            assertEquals(AlarmSoundState.PLAYING, audioPlayer.soundState)
+            assertEquals(
+                listOf(alarm.id to Instant.parse("2026-07-30T23:30:00Z")),
+                scheduler.scheduled.map { it.first.id to it.second },
+            )
+        }
+
+    @Test
+    fun `overlapping delivery replaces a snoozed session durably`() = runBlocking {
+        val second = alarm().copy(id = "second-alarm", label = "Second")
+        val repository = CollisionAlarmRepository(listOf(alarm, second))
+        val controller = RingingSessionController(
+            repository = repository,
+            audioPlayer = FakeAlarmAudioPlayer(),
+            vibrator = FakeAlarmVibrator(),
+            scheduler = FakeAlarmScheduler(),
+            clock = clock,
+            zoneProvider = { zone },
+            sessionIdFactory = sequenceOf("first-session", "second-session").iterator()::next,
+        )
+        assertTrue(controller.start(alarm.id))
+        assertTrue(controller.snooze())
+
+        assertTrue(controller.start(second.id))
+
+        assertEquals(second.id, repository.activeSession()?.alarmId)
+        assertEquals(SessionStatus.MISSED, repository.sessions["first-session"]?.status)
+        assertEquals(AlarmEventResult.MISSED, repository.events.single().result)
     }
 
     @Test
@@ -146,6 +211,31 @@ class RingingSessionControllerTest {
         PendingScheduleRecovery(repository, scheduler).recover()
 
         assertEquals(listOf(alarm to trigger, alarm to trigger), scheduler.scheduled)
+        assertEquals(null, repository.session?.pendingScheduleAt)
+    }
+
+    @Test
+    fun `repeat scheduler exception remains durable for later recovery`() = runBlocking {
+        val repository = FakeAlarmRepository(alarm)
+        val scheduler = FakeAlarmScheduler(fail = true)
+        val audioPlayer = FakeAlarmAudioPlayer()
+        val controller = controller(
+            repository,
+            audioPlayer,
+            FakeAlarmVibrator(),
+            scheduler,
+        )
+        controller.start(alarm.id)
+
+        assertTrue(controller.complete())
+        val trigger = Instant.parse("2026-07-30T23:30:00Z")
+        assertEquals(SessionStatus.COMPLETED, repository.session?.status)
+        assertEquals(trigger, repository.session?.pendingScheduleAt)
+        assertEquals(AlarmSoundState.STOPPED, audioPlayer.soundState)
+
+        scheduler.fail = false
+        val result = PendingScheduleRecovery(repository, scheduler).recover()
+        assertEquals(1, result.registeredCount)
         assertEquals(null, repository.session?.pendingScheduleAt)
     }
 
@@ -262,6 +352,77 @@ class RingingSessionControllerTest {
         createdAt = Instant.parse("2026-01-01T00:00:00Z"),
         updatedAt = Instant.parse("2026-01-01T00:00:00Z"),
     )
+}
+
+private class CollisionAlarmRepository(
+    alarms: List<Alarm>,
+) : AlarmRepository {
+    private val alarms = alarms.associateByTo(mutableMapOf(), Alarm::id)
+    val sessions = linkedMapOf<String, RingingSession>()
+    val events = mutableListOf<AlarmEvent>()
+
+    override fun observeAlarms(): Flow<List<Alarm>> = flowOf(alarms.values.toList())
+    override suspend fun upsertAlarm(alarm: Alarm) {
+        alarms[alarm.id] = alarm
+    }
+    override suspend fun deleteAlarm(id: String) {
+        alarms.remove(id)
+    }
+    override suspend fun getAlarm(id: String): Alarm? = alarms[id]
+    override suspend fun saveSession(session: RingingSession) {
+        sessions[session.id] = session
+    }
+    override suspend fun activeSession(): RingingSession? =
+        sessions.values.lastOrNull { it.status in setOf(SessionStatus.RINGING, SessionStatus.SNOOZED) }
+    override suspend fun transitionSession(
+        session: RingingSession,
+        expectedStatuses: Set<SessionStatus>,
+        event: AlarmEvent?,
+        alarmUpdate: Alarm?,
+    ): Boolean {
+        val current = sessions[session.id] ?: return false
+        if (current.status !in expectedStatuses) return false
+        sessions[session.id] = session
+        event?.let(events::add)
+        alarmUpdate?.let { alarms[it.id] = it }
+        return true
+    }
+    override suspend fun replaceActiveSession(
+        previous: RingingSession,
+        expectedStatuses: Set<SessionStatus>,
+        previousEvent: AlarmEvent,
+        previousAlarmUpdate: Alarm?,
+        next: RingingSession,
+    ): Boolean {
+        val current = sessions[previous.id] ?: return false
+        if (current.status !in expectedStatuses) return false
+        sessions[previous.id] = previous
+        sessions[next.id] = next
+        events += previousEvent
+        previousAlarmUpdate?.let { alarms[it.id] = it }
+        return true
+    }
+    override suspend fun pendingSchedules(): List<PendingAlarmSchedule> =
+        sessions.values.mapNotNull { session ->
+            session.pendingScheduleAt?.let { PendingAlarmSchedule(session.id, session.alarmId, it) }
+        }
+    override suspend fun acknowledgePendingSchedule(
+        sessionId: String,
+        scheduledAt: Instant,
+    ): Boolean {
+        val current = sessions[sessionId] ?: return false
+        if (current.pendingScheduleAt != scheduledAt) return false
+        sessions[sessionId] = current.copy(pendingScheduleAt = null)
+        return true
+    }
+    override suspend fun appendEvent(event: AlarmEvent) {
+        events += event
+    }
+    override suspend fun recentEvents(limit: Int): List<AlarmEvent> = events.take(limit)
+    override suspend fun clearHistory() {
+        sessions.clear()
+        events.clear()
+    }
 }
 
 private class FakeAlarmRepository(

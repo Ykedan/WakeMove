@@ -11,6 +11,7 @@ import com.wakemove.android.health.AndroidHealthService
 import com.wakemove.android.ringing.AndroidAlarmAudioPlayer
 import com.wakemove.android.ringing.AndroidAlarmVibrator
 import com.wakemove.android.ringing.RingingDependencies
+import com.wakemove.android.ringing.RingingNotificationChannel
 import com.wakemove.android.ringing.RingingSessionController
 import com.wakemove.android.scheduling.AlarmScheduler
 import com.wakemove.android.scheduling.AndroidAlarmScheduler
@@ -42,6 +43,7 @@ class WakeMoveApplication :
 
     override fun onCreate() {
         super.onCreate()
+        RingingNotificationChannel.ensureCreated(this)
         val database = Room.databaseBuilder(
             this,
             AlarmDatabase::class.java,

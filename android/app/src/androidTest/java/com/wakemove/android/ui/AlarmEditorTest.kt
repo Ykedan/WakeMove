@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -134,7 +135,7 @@ class AlarmEditorTest {
     }
 
     @Test
-    fun voiceChallengeHidesTargetCountAndRequiresMicrophoneHealth() {
+    fun voiceChallengeHidesTargetCountWithoutBlockingSaveBeforeChallengePermission() {
         var state by mutableStateOf(
             AlarmEditorUiState(
                 timeText = "07:30",
@@ -166,8 +167,8 @@ class AlarmEditorTest {
                 health = readyHealth.copy(microphone = HealthStatus.ACTION_REQUIRED),
             )
         }
-        composeRule.onNodeWithTag("save_alarm").assertIsNotEnabled()
-        composeRule.onNodeWithText("语音短语需要麦克风权限").assertIsDisplayed()
+        composeRule.onNodeWithTag("save_alarm").assertIsEnabled()
+        composeRule.onNodeWithText("语音短语需要麦克风权限").assertDoesNotExist()
     }
 
     @Test
@@ -288,6 +289,7 @@ class AlarmEditorTest {
             editor.save(
                 AlarmEditorUiState(
                     timeText = "07:30",
+                    selectedDays = setOf(DayOfWeek.MONDAY),
                     health = readyHealth,
                 ),
             )
@@ -313,6 +315,7 @@ class AlarmEditorTest {
             editor.save(
                 AlarmEditorUiState(
                     timeText = "07:30",
+                    selectedDays = setOf(DayOfWeek.MONDAY),
                     health = readyHealth,
                 ),
             )
@@ -398,7 +401,11 @@ class AlarmEditorTest {
             healthProvider = { readyHealth },
             idProvider = { "create-${++nextId}" },
         )
-        val state = AlarmEditorUiState(timeText = "07:30", health = readyHealth)
+        val state = AlarmEditorUiState(
+            timeText = "07:30",
+            selectedDays = setOf(DayOfWeek.MONDAY),
+            health = readyHealth,
+        )
 
         val first = async { editor.save(state) }
         entered.await()

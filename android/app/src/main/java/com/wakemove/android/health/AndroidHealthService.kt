@@ -7,7 +7,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
+import android.speech.SpeechRecognizer
 import androidx.core.content.ContextCompat
+import com.wakemove.android.ringing.RingingService
 
 enum class HealthStatus {
     READY,
@@ -22,10 +24,13 @@ data class HealthSnapshot(
     val camera: HealthStatus,
     val microphone: HealthStatus,
     val batteryOptimization: HealthStatus = HealthStatus.READY,
+    val notificationChannel: HealthStatus = HealthStatus.READY,
+    val speechRecognition: HealthStatus = HealthStatus.READY,
 ) {
     val canScheduleAlarms: Boolean
         get() = exactAlarm == HealthStatus.READY &&
             notifications == HealthStatus.READY &&
+            notificationChannel == HealthStatus.READY &&
             fullScreenIntent == HealthStatus.READY
 }
 
@@ -42,6 +47,9 @@ class AndroidHealthService(
     private val batteryOptimizationIgnored: () -> Boolean = {
         context.getSystemService(PowerManager::class.java)
             ?.isIgnoringBatteryOptimizations(context.packageName) == true
+    },
+    private val speechRecognitionAvailable: () -> Boolean = {
+        SpeechRecognizer.isRecognitionAvailable(context.applicationContext)
     },
 ) {
     private val appContext = context.applicationContext
@@ -64,6 +72,12 @@ class AndroidHealthService(
         } else {
             HealthStatus.ACTION_REQUIRED
         },
+        notificationChannel = notificationChannelStatus(),
+        speechRecognition = if (speechRecognitionAvailable()) {
+            HealthStatus.READY
+        } else {
+            HealthStatus.UNAVAILABLE
+        },
     )
 
     private fun exactAlarmStatus(): HealthStatus {
@@ -85,6 +99,17 @@ class AndroidHealthService(
             HealthStatus.READY
         } else {
             HealthStatus.ACTION_REQUIRED
+        }
+    }
+
+    private fun notificationChannelStatus(): HealthStatus {
+        val manager = notificationManager ?: return HealthStatus.UNAVAILABLE
+        val channel = manager.getNotificationChannel(RingingService.NOTIFICATION_CHANNEL_ID)
+            ?: return HealthStatus.ACTION_REQUIRED
+        return if (channel.importance == NotificationManager.IMPORTANCE_NONE) {
+            HealthStatus.ACTION_REQUIRED
+        } else {
+            HealthStatus.READY
         }
     }
 

@@ -22,6 +22,19 @@ interface AlarmRepository {
         alarmUpdate: Alarm? = null,
     ): Boolean
 
+    suspend fun replaceActiveSession(
+        previous: RingingSession,
+        expectedStatuses: Set<SessionStatus>,
+        previousEvent: AlarmEvent,
+        previousAlarmUpdate: Alarm? = null,
+        next: RingingSession,
+    ): Boolean = false
+
+    suspend fun expireOneShot(
+        alarm: Alarm,
+        event: AlarmEvent,
+    ): Boolean = false
+
     suspend fun pendingSchedules(): List<PendingAlarmSchedule> = emptyList()
 
     suspend fun acknowledgePendingSchedule(

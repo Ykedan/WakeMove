@@ -78,3 +78,4 @@ storeFile=D:/path/outside/repository/wakemove-development.jks
 - 模拟器证据、真机测试步骤和待填写矩阵见 [docs/device-acceptance.md](docs/device-acceptance.md)。
 - 摄像头姿态识别、锁屏响铃、重启恢复、弱光和真实麦克风识别必须在物理 Android 设备上最终验收。模拟器测试不能替代这些结果。
 - Android 无法绕过用户强制停止应用、关机或系统厂商的极端后台限制；“健康检查”页面会提示可检测的问题。
+- WakeMove 当前**不支持 Direct Boot**：设备重启后、用户完成首次解锁前，不会从加密的 Room 数据库恢复闹钟。应用未声明 `LOCKED_BOOT_COMPLETED`，也不会把“首次解锁前恢复”误报为已支持；首次解锁后系统发送 `BOOT_COMPLETED`，应用才重新注册闹钟。

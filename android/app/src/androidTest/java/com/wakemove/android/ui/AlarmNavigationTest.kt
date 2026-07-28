@@ -56,6 +56,7 @@ class AlarmNavigationTest {
 
         composeRule.onNodeWithTag("add_alarm").performClick()
         composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
+        composeRule.onNodeWithTag("weekday_MONDAY").performScrollTo().performClick()
         composeRule.onNodeWithTag("save_alarm").performScrollTo().performClick()
 
         composeRule.onNodeWithText("保存失败，闹钟状态已恢复")
@@ -80,6 +81,7 @@ class AlarmNavigationTest {
 
         composeRule.onNodeWithTag("add_alarm").performClick()
         composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
+        composeRule.onNodeWithTag("weekday_MONDAY").performScrollTo().performClick()
         composeRule.onNodeWithTag("save_alarm").performScrollTo().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithTag("submission_progress")
@@ -107,6 +109,7 @@ class AlarmNavigationTest {
 
         composeRule.onNodeWithTag("add_alarm").performClick()
         composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
+        composeRule.onNodeWithTag("weekday_MONDAY").performScrollTo().performClick()
         composeRule.onNodeWithTag("save_alarm").performScrollTo().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithTag("submission_progress")

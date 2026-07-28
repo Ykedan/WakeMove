@@ -41,11 +41,15 @@ class PendingScheduleRecovery(
 
                 try {
                     scheduler.schedule(alarm, pending.scheduledAt)
-                    registeredCount += 1
-                    repository.acknowledgePendingSchedule(
+                    val acknowledged = repository.acknowledgePendingSchedule(
                         pending.sessionId,
                         pending.scheduledAt,
                     )
+                    if (acknowledged) {
+                        registeredCount += 1
+                    } else {
+                        failures += pending
+                    }
                 } catch (_: Exception) {
                     failures += pending
                 }

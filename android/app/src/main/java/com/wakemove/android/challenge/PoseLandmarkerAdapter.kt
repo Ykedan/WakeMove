@@ -5,10 +5,13 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.os.SystemClock
+import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -56,6 +59,7 @@ class PoseLandmarkerAdapter(
     private var cameraProvider: ProcessCameraProvider? = null
     private var preview: Preview? = null
     private var imageAnalysis: ImageAnalysis? = null
+    private val frameGate = OwnedFrameGate()
 
     override fun start(listener: (PoseObservation) -> Unit) {
         synchronized(lock) {
@@ -126,6 +130,7 @@ class PoseLandmarkerAdapter(
         }
 
         resources.imageAnalysis?.clearAnalyzer()
+        frameGate.close()
         mainExecutor.execute {
             val useCases = listOfNotNull(resources.preview, resources.imageAnalysis).toTypedArray()
             if (useCases.isNotEmpty()) resources.provider?.unbind(*useCases)
@@ -149,6 +154,16 @@ class PoseLandmarkerAdapter(
         val imageAnalysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(MAX_ANALYSIS_WIDTH, MAX_ANALYSIS_HEIGHT),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
+                        ),
+                    )
+                    .build(),
+            )
             .build()
             .also {
                 it.setAnalyzer(executor) { image ->
@@ -191,7 +206,10 @@ class PoseLandmarkerAdapter(
                 .setMinTrackingConfidence(0.5f)
                 .setOutputSegmentationMasks(false)
                 .setResultListener(::onResult)
-                .setErrorListener { reportUnavailable() }
+                .setErrorListener {
+                    frameGate.release()
+                    reportUnavailable()
+                }
                 .build()
             PoseLandmarker.createFromOptions(applicationContext, options)
         } ?: return
@@ -209,31 +227,54 @@ class PoseLandmarkerAdapter(
             listener?.invoke(PoseObservation.LowLight)
             return
         }
-        val bitmap = createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
-        bitmap.copyPixelsFromBuffer(image.planes[0].buffer.duplicate().apply { rewind() })
-        val matrix = Matrix().apply {
-            postRotate(image.imageInfo.rotationDegrees.toFloat())
-            if (cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
-                postScale(-1f, 1f, image.width.toFloat(), image.height.toFloat())
+        if (!frameGate.tryReserve()) return
+        var sourceBitmap: Bitmap? = null
+        var orientedBitmap: Bitmap? = null
+        try {
+            val bitmap = createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+            sourceBitmap = bitmap
+            bitmap.copyPixelsFromBuffer(image.planes[0].buffer.duplicate().apply { rewind() })
+            val matrix = Matrix().apply {
+                postRotate(image.imageInfo.rotationDegrees.toFloat())
+                if (cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
+                    postScale(-1f, 1f, image.width.toFloat(), image.height.toFloat())
+                }
             }
+            val oriented = Bitmap.createBitmap(
+                bitmap,
+                0,
+                0,
+                bitmap.width,
+                bitmap.height,
+                matrix,
+                true,
+            )
+            orientedBitmap = oriented
+            val mpImage = BitmapImageBuilder(oriented).build()
+            frameGate.attach(OwnedInferenceFrame(mpImage, bitmap, oriented))
+            sourceBitmap = null
+            orientedBitmap = null
+            val landmarker = poseLandmarker
+            if (landmarker == null) {
+                frameGate.release()
+                return
+            }
+            landmarker.detectAsync(mpImage, SystemClock.uptimeMillis())
+        } catch (error: Exception) {
+            frameGate.release()
+            if (orientedBitmap?.isRecycled == false) orientedBitmap.recycle()
+            if (sourceBitmap !== orientedBitmap && sourceBitmap?.isRecycled == false) {
+                sourceBitmap.recycle()
+            }
+            reportUnavailable()
         }
-        val orientedBitmap = Bitmap.createBitmap(
-            bitmap,
-            0,
-            0,
-            bitmap.width,
-            bitmap.height,
-            matrix,
-            true,
-        )
-        val mpImage = BitmapImageBuilder(orientedBitmap).build()
-        poseLandmarker?.detectAsync(mpImage, SystemClock.uptimeMillis())
     }
 
     private fun onResult(
         result: PoseLandmarkerResult,
         @Suppress("UNUSED_PARAMETER") input: MPImage,
     ) {
+        frameGate.release()
         val detected = result.landmarks().firstOrNull()
         if (detected == null || detected.size != PoseLandmark.entries.size) {
             listener?.invoke(PoseObservation.NoPerson)
@@ -283,6 +324,72 @@ class PoseLandmarkerAdapter(
 
     private companion object {
         const val MODEL_ASSET = "pose_landmarker_lite.task"
+        const val MAX_ANALYSIS_WIDTH = 640
+        const val MAX_ANALYSIS_HEIGHT = 480
+    }
+}
+
+internal class OwnedFrameGate {
+    private var reserved = false
+    private var owned: AutoCloseable? = null
+    private var closed = false
+
+    val hasInFlight: Boolean
+        get() = synchronized(this) { reserved }
+
+    fun tryReserve(): Boolean = synchronized(this) {
+        if (closed || reserved) return false
+        reserved = true
+        true
+    }
+
+    fun attach(resource: AutoCloseable) {
+        synchronized(this) {
+            check(reserved && owned == null && !closed)
+            owned = resource
+        }
+    }
+
+    fun tryAcquire(resource: AutoCloseable): Boolean {
+        if (!tryReserve()) {
+            resource.close()
+            return false
+        }
+        attach(resource)
+        return true
+    }
+
+    fun release() {
+        val resource = synchronized(this) {
+            val current = owned
+            owned = null
+            reserved = false
+            current
+        }
+        resource?.close()
+    }
+
+    fun close() {
+        val resource = synchronized(this) {
+            closed = true
+            reserved = false
+            val current = owned
+            owned = null
+            current
+        }
+        resource?.close()
+    }
+}
+
+private class OwnedInferenceFrame(
+    private val image: MPImage,
+    private val source: Bitmap,
+    private val oriented: Bitmap,
+) : AutoCloseable {
+    override fun close() {
+        image.close()
+        if (!oriented.isRecycled) oriented.recycle()
+        if (source !== oriented && !source.isRecycled) source.recycle()
     }
 }
 

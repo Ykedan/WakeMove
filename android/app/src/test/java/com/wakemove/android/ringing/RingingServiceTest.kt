@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Looper
 import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.AlarmEvent
+import com.wakemove.android.domain.AlarmEventResult
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.domain.PendingAlarmSchedule
@@ -253,7 +254,7 @@ class RingingServiceTest {
     }
 
     @Test
-    fun `competing alarm start preserves owned ringing until eventual completion`() =
+    fun `competing alarm start records the old delivery and transfers service ownership`() =
         runBlocking {
             val service = startedService(startId = 30)
             val competing = TEST_ALARM.copy(id = "competing")
@@ -268,7 +269,11 @@ class RingingServiceTest {
             )
             shadowOf(Looper.getMainLooper()).idle()
 
-            assertEquals(TEST_ALARM.id, application.repository.session?.alarmId)
+            assertEquals(competing.id, application.repository.session?.alarmId)
+            assertEquals(
+                TEST_ALARM.id to AlarmEventResult.MISSED,
+                application.repository.events.single().let { it.alarmId to it.result },
+            )
             assertOwnedRingingContinues(service)
 
             assertTrue(application.ringingSessionController.complete())
@@ -417,6 +422,7 @@ class RingingServiceTestApplication : Application(), RingingDependencies {
         private set
     lateinit var scheduler: ServiceAlarmScheduler
         private set
+    private var sessionSequence = 0
     override lateinit var ringingSessionController: RingingSessionController
         private set
 
@@ -426,6 +432,7 @@ class RingingServiceTestApplication : Application(), RingingDependencies {
     }
 
     fun reset() {
+        sessionSequence = 0
         order = mutableListOf()
         repository = ServiceAlarmRepository(TEST_ALARM, order)
         audioPlayer = ServiceAudioPlayer(order)
@@ -442,7 +449,10 @@ class RingingServiceTestApplication : Application(), RingingDependencies {
             scheduler = scheduler,
             clock = Clock.fixed(TEST_NOW, ZoneOffset.UTC),
             zoneProvider = { ZoneOffset.UTC },
-            sessionIdFactory = { "session-id" },
+            sessionIdFactory = {
+                sessionSequence += 1
+                if (sessionSequence == 1) "session-id" else "session-id-$sessionSequence"
+            },
         )
     }
 }
@@ -453,6 +463,7 @@ internal class ServiceAlarmRepository(
 ) : AlarmRepository {
     val alarms = mutableMapOf(alarm.id to alarm)
     val extraPending = mutableListOf<PendingAlarmSchedule>()
+    val archivedSessions = mutableListOf<RingingSession>()
     var session: RingingSession? = null
         private set
 
@@ -483,6 +494,22 @@ internal class ServiceAlarmRepository(
         this.session = session
         if (event != null) events += event
         if (alarmUpdate != null) alarms[alarmUpdate.id] = alarmUpdate
+        return true
+    }
+
+    override suspend fun replaceActiveSession(
+        previous: RingingSession,
+        expectedStatuses: Set<SessionStatus>,
+        previousEvent: AlarmEvent,
+        previousAlarmUpdate: Alarm?,
+        next: RingingSession,
+    ): Boolean {
+        val current = session ?: return false
+        if (current.id != previous.id || current.status !in expectedStatuses) return false
+        archivedSessions += previous
+        events += previousEvent
+        previousAlarmUpdate?.let { alarms[it.id] = it }
+        session = next
         return true
     }
 
