@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -47,6 +48,14 @@ import org.junit.Test
 class AlarmNavigationTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun mainNavigationIconsExposeDestinationContentDescriptions() {
+        setNavContent(FakeAlarmRepository(), FakeAlarmScheduler())
+        composeRule.onNodeWithContentDescription("闹钟").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("历史").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("健康检查").assertIsDisplayed()
+    }
 
     @Test
     fun schedulingFailureStaysInEditorAndShowsRecoverableError() {

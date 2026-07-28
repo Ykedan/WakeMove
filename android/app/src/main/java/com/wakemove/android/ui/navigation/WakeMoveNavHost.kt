@@ -1,9 +1,14 @@
 package com.wakemove.android.ui.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.HealthAndSafety
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -23,7 +28,10 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -48,6 +56,9 @@ import com.wakemove.android.ui.health.launchHealthRepair
 import com.wakemove.android.ui.history.HistoryScreen
 import com.wakemove.android.ui.ringing.RingingFlowHost
 import com.wakemove.android.ui.settings.SettingsScreen
+import com.wakemove.android.ui.theme.WakeMoveMutedText
+import com.wakemove.android.ui.theme.WakeMovePeach
+import com.wakemove.android.ui.theme.WakeMoveSunrise
 import java.time.DayOfWeek
 import kotlinx.coroutines.launch
 
@@ -61,11 +72,11 @@ interface AlarmUiDependencies {
 private enum class MainDestination(
     val route: String,
     val label: String,
-    val iconText: String,
+    val icon: ImageVector,
 ) {
-    ALARMS(ROUTE_ALARMS, "闹钟", "钟"),
-    HISTORY(ROUTE_HISTORY, "历史", "史"),
-    HEALTH(ROUTE_HEALTH, "健康检查", "检"),
+    ALARMS(ROUTE_ALARMS, "闹钟", Icons.Outlined.Alarm),
+    HISTORY(ROUTE_HISTORY, "历史", Icons.Outlined.History),
+    HEALTH(ROUTE_HEALTH, "健康检查", Icons.Outlined.HealthAndSafety),
 }
 
 @Composable
@@ -246,14 +257,24 @@ private fun MainShell(
             ) {
                 MainDestination.entries.forEach { item ->
                     NavigationBarItem(
+                        modifier = Modifier.semantics {
+                            contentDescription = item.label
+                        },
                         selected = destination == item,
                         onClick = { onDestinationSelected(item) },
-                        icon = { Text(item.iconText) },
+                        icon = {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = item.label,
+                            )
+                        },
                         label = { Text(item.label) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onSurface,
-                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedIconColor = WakeMoveSunrise,
+                            selectedTextColor = WakeMoveSunrise,
+                            unselectedIconColor = WakeMoveMutedText,
+                            unselectedTextColor = WakeMoveMutedText,
+                            indicatorColor = WakeMovePeach,
                         ),
                     )
                 }
