@@ -95,3 +95,18 @@ provided directly to this fix wave rather than stored in a separate file).
   - release: `85DD4FFD9DBFE59278EBF9180E1871A1A7DB250FD48E591850A92D650E30C262`
 - `git diff --check` passed and the tracked diff had no credential-pattern
   matches. IDE/cache/daemon configuration files remain untracked.
+
+## Low channel-importance regression refresh
+
+- The prior health regression covered `IMPORTANCE_DEFAULT`; this follow-up adds
+  an explicit `IMPORTANCE_LOW` alarm-channel case. It remains
+  `ACTION_REQUIRED` and prevents scheduling, which protects the production
+  `< IMPORTANCE_HIGH` policy boundary.
+- Mutation evidence: replacing the production high-threshold comparison with a
+  low-only comparison caused the focused health suite to fail, including the
+  new low-importance case. Restoring the production predicate made the focused
+  suite pass.
+- Fresh command:
+  `gradlew testDebugUnitTest lintDebug connectedDebugAndroidTest assembleDebug assembleRelease --no-daemon --console=plain`
+  completed successfully: 140 unit tests and 47 connected tests, each with 0
+  failures, 0 errors, and 0 skipped.
