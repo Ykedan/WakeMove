@@ -9,10 +9,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -20,6 +20,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import com.wakemove.android.MainActivity
@@ -318,22 +319,50 @@ class AlarmEditorTest {
     }
 
     @Test
-    fun inFlightAlarmListDisablesNextAlarmHeroSemantics() {
+    fun inFlightAlarmListPreventsEveryDashboardCallback() {
+        var createCount = 0
+        val editedAlarmIds = mutableListOf<String>()
+        val enabledChanges = mutableListOf<Boolean>()
+        var settingsCount = 0
         composeRule.setContent {
             WakeMoveTheme {
                 AlarmListScreen(
                     alarms = listOf(alarm()),
                     operationState = AlarmOperationUiState(isInFlight = true),
-                    onCreateAlarm = {},
-                    onEditAlarm = {},
-                    onEnabledChange = { _, _ -> },
-                    onOpenSettings = {},
+                    onCreateAlarm = { createCount += 1 },
+                    onEditAlarm = { editedAlarmIds += it.id },
+                    onEnabledChange = { _, enabled -> enabledChanges += enabled },
+                    onOpenSettings = { settingsCount += 1 },
                     nowProvider = { MONDAY_MORNING },
                 )
             }
         }
 
-        composeRule.onNodeWithTag("next_alarm_card").assertIsNotEnabled()
+        composeRule.onNodeWithTag("settings_button")
+            .assertIsNotEnabled()
+            .performTouchInput { click() }
+        composeRule.onNodeWithTag("next_alarm_card")
+            .assertIsNotEnabled()
+            .performTouchInput { click() }
+        composeRule.onNodeWithTag("alarm_card_alarm-1")
+            .performScrollTo()
+            .assertIsNotEnabled()
+            .performTouchInput { click() }
+        composeRule.onNodeWithTag("alarm_enabled_alarm-1")
+            .performScrollTo()
+            .assertIsNotEnabled()
+            .performTouchInput { click() }
+        composeRule.onNodeWithTag("add_alarm")
+            .performScrollTo()
+            .assertIsNotEnabled()
+            .performTouchInput { click() }
+
+        composeRule.runOnIdle {
+            assertEquals(0, createCount)
+            assertTrue(editedAlarmIds.isEmpty())
+            assertTrue(enabledChanges.isEmpty())
+            assertEquals(0, settingsCount)
+        }
     }
 
     @Test

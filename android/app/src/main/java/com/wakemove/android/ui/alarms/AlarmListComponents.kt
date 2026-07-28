@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -57,6 +58,17 @@ internal fun MorningHeader(
     onOpenSettings: () -> Unit,
     enabled: Boolean,
 ) {
+    val settingsContainerColor = if (enabled) {
+        MaterialTheme.colorScheme.surface
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = DISABLED_CONTAINER_ALPHA)
+    }
+    val settingsContentColor = if (enabled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        WakeMoveMutedText.copy(alpha = DISABLED_CONTENT_ALPHA)
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -85,13 +97,13 @@ internal fun MorningHeader(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surface)
+                .background(settingsContainerColor)
                 .testTag("settings_button"),
         ) {
             Icon(
                 imageVector = Icons.Outlined.Settings,
                 contentDescription = "设置",
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = settingsContentColor,
             )
         }
     }
@@ -105,6 +117,19 @@ internal fun NextAlarmHero(
 ) {
     val alarmTime = model.occurrence.format(TIME_FORMAT)
     val occurrenceDate = model.occurrence.format(DATE_FORMAT)
+    val heroColors = if (enabled) {
+        listOf(WakeMoveSunlight, WakeMoveSunrise)
+    } else {
+        listOf(
+            WakeMoveSunlight.copy(alpha = DISABLED_GRADIENT_ALPHA),
+            WakeMoveSunrise.copy(alpha = DISABLED_GRADIENT_ALPHA),
+        )
+    }
+    val heroContentColor = if (enabled) {
+        WakeMoveText
+    } else {
+        WakeMoveMutedText.copy(alpha = DISABLED_CONTENT_ALPHA)
+    }
 
     Box(
         modifier = Modifier
@@ -112,7 +137,7 @@ internal fun NextAlarmHero(
             .clip(MaterialTheme.shapes.extraLarge)
             .background(
                 Brush.linearGradient(
-                    listOf(WakeMoveSunlight, WakeMoveSunrise),
+                    heroColors,
                 ),
             )
             .clickable(
@@ -128,23 +153,23 @@ internal fun NextAlarmHero(
                 text = "下一次唤醒",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = WakeMoveText,
+                color = heroContentColor,
             )
             Text(
                 text = alarmTime,
                 style = MaterialTheme.typography.displayMedium,
-                color = WakeMoveText,
+                color = heroContentColor,
             )
             Text(
                 text = model.alarm.label.ifBlank { "起床闹钟" },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = WakeMoveText,
+                color = heroContentColor,
             )
             Text(
                 text = "$occurrenceDate · ${model.alarm.repeatDays.chineseDescription()}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = WakeMoveText,
+                color = heroContentColor,
             )
         }
     }
@@ -243,6 +268,8 @@ internal fun SunriseEmptyState(
             colors = ButtonDefaults.buttonColors(
                 containerColor = WakeMoveSunrise,
                 contentColor = WakeMoveText,
+                disabledContainerColor = WakeMovePeach,
+                disabledContentColor = WakeMoveMutedText,
             ),
         ) {
             Icon(
@@ -266,6 +293,21 @@ internal fun SunriseAlarmCard(
     enabled: Boolean,
 ) {
     val alarmTime = alarm.time.format(TIME_FORMAT)
+    val primaryTextColor = when {
+        !enabled -> WakeMoveMutedText.copy(alpha = DISABLED_CONTENT_ALPHA)
+        alarm.enabled -> MaterialTheme.colorScheme.onSurface
+        else -> WakeMoveMutedText
+    }
+    val secondaryTextColor = if (enabled) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        WakeMoveMutedText.copy(alpha = DISABLED_SECONDARY_ALPHA)
+    }
+    val challengeTextColor = if (enabled) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        WakeMoveMutedText.copy(alpha = DISABLED_SECONDARY_ALPHA)
+    }
 
     Card(
         onClick = onEdit,
@@ -276,9 +318,14 @@ internal fun SunriseAlarmCard(
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
-            disabledContainerColor = MaterialTheme.colorScheme.surface,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(
+                alpha = DISABLED_CONTAINER_ALPHA,
+            ),
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp,
+            disabledElevation = 0.dp,
+        ),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -295,35 +342,43 @@ internal fun SunriseAlarmCard(
                         contentDescription = "闹钟时间 $alarmTime"
                     },
                     style = MaterialTheme.typography.displayMedium,
-                    color = if (alarm.enabled) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        WakeMoveMutedText
-                    },
+                    color = primaryTextColor,
                 )
                 Switch(
                     checked = alarm.enabled,
                     onCheckedChange = onEnabledChange,
                     enabled = enabled,
                     modifier = Modifier.testTag("alarm_enabled_${alarm.id}"),
+                    colors = SwitchDefaults.colors(
+                        disabledCheckedThumbColor = WakeMoveMutedText,
+                        disabledCheckedTrackColor = WakeMoveSunrise.copy(
+                            alpha = DISABLED_GRADIENT_ALPHA,
+                        ),
+                        disabledUncheckedThumbColor = WakeMoveMutedText.copy(
+                            alpha = DISABLED_CONTENT_ALPHA,
+                        ),
+                        disabledUncheckedTrackColor = WakeMoveMutedText.copy(
+                            alpha = DISABLED_GRADIENT_ALPHA,
+                        ),
+                    ),
                 )
             }
             Text(
                 text = alarm.label.ifBlank { "起床闹钟" },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = primaryTextColor,
             )
             Text(
                 text = alarm.repeatDays.chineseDescription(),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = secondaryTextColor,
             )
             Text(
                 text = "${alarm.challengeType.chineseLabel()} · ${alarm.targetDescription()}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                color = challengeTextColor,
             )
         }
     }
@@ -344,6 +399,8 @@ internal fun AddAlarmButton(
         colors = ButtonDefaults.buttonColors(
             containerColor = WakeMoveSunrise,
             contentColor = WakeMoveText,
+            disabledContainerColor = WakeMovePeach,
+            disabledContentColor = WakeMoveMutedText,
         ),
     ) {
         Icon(
@@ -391,3 +448,7 @@ internal fun Alarm.targetDescription(): String =
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
 private val DATE_FORMAT = DateTimeFormatter.ofPattern("M月d日")
+private const val DISABLED_CONTAINER_ALPHA = 0.55f
+private const val DISABLED_CONTENT_ALPHA = 0.58f
+private const val DISABLED_SECONDARY_ALPHA = 0.45f
+private const val DISABLED_GRADIENT_ALPHA = 0.28f
