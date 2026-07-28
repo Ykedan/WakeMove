@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.Card
@@ -145,6 +146,17 @@ internal fun WeekdaySelector(
                     fontWeight = FontWeight.SemiBold,
                     color = WakeMoveText,
                 )
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(16.dp)
+                            .testTag("weekday_selected_marker_${day.name}"),
+                        tint = WakeMoveText,
+                    )
+                }
             }
         }
     }

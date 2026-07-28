@@ -1,11 +1,19 @@
 package com.wakemove.android.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -17,6 +25,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
@@ -110,7 +119,39 @@ class AlarmEditorTest {
     }
 
     @Test
-    fun weekdayTogglesExposeSelectedState() {
+    fun fixedSaveBarClearsNavigationBarInset() {
+        var navigationBarInset = 0.dp
+        composeRule.setContent {
+            val density = LocalDensity.current
+            navigationBarInset = with(density) {
+                WindowInsets.navigationBars.getBottom(this).toDp()
+            }
+            WakeMoveTheme {
+                AlarmEditorScreen(
+                    state = AlarmEditorUiState(
+                        timeText = "07:30",
+                        health = readyHealth,
+                    ),
+                    onTimeChange = {},
+                    onDayToggle = {},
+                    onChallengeSelected = {},
+                    onTargetCountChange = {},
+                    onSave = {},
+                    onDelete = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        val rootBottom = composeRule.onRoot().getUnclippedBoundsInRoot().bottom
+        val saveBottom = composeRule.onNodeWithTag("save_alarm")
+            .getUnclippedBoundsInRoot()
+            .bottom
+        assertTrue(rootBottom - saveBottom >= navigationBarInset + 12.dp)
+    }
+
+    @Test
+    fun weekdaySelectionShowsVisualMarkerAndPreservesAccessibleControl() {
         var state by mutableStateOf(
             AlarmEditorUiState(
                 timeText = "07:30",
@@ -138,10 +179,28 @@ class AlarmEditorTest {
             }
         }
 
-        composeRule.onNodeWithTag("weekday_MONDAY").performClick()
-        composeRule.onNodeWithTag("weekday_MONDAY").assertIsSelected()
-        composeRule.onNodeWithTag("weekday_MONDAY").performClick()
-        composeRule.onNodeWithTag("weekday_MONDAY").assertIsNotSelected()
+        val monday = composeRule.onNodeWithTag("weekday_MONDAY")
+        val selectedMarker = composeRule.onNodeWithTag(
+            testTag = "weekday_selected_marker_MONDAY",
+            useUnmergedTree = true,
+        )
+        selectedMarker.assertDoesNotExist()
+
+        monday
+            .performClick()
+            .assertIsSelected()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.Role,
+                    Role.Checkbox,
+                ),
+            )
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+        selectedMarker.assertIsDisplayed()
+
+        monday.performClick().assertIsNotSelected()
+        selectedMarker.assertDoesNotExist()
     }
 
     @Test
