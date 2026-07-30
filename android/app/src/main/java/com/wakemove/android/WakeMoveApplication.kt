@@ -11,12 +11,16 @@ import com.wakemove.android.health.AndroidHealthService
 import com.wakemove.android.ringing.AndroidAlarmAudioPlayer
 import com.wakemove.android.ringing.AndroidAlarmVibrator
 import com.wakemove.android.ringing.RingingDependencies
+import com.wakemove.android.ringing.RingingDeliveryDependencies
 import com.wakemove.android.ringing.RingingNotificationChannel
 import com.wakemove.android.ringing.RingingSessionController
 import com.wakemove.android.scheduling.AlarmScheduler
+import com.wakemove.android.scheduling.AlarmDeliveryCoordinator
+import com.wakemove.android.scheduling.AlarmDeliveryDiagnostics
 import com.wakemove.android.scheduling.AndroidAlarmScheduler
 import com.wakemove.android.scheduling.PendingScheduleRecovery
 import com.wakemove.android.scheduling.SchedulingDependencies
+import com.wakemove.android.scheduling.StartupAlarmRecovery
 import com.wakemove.android.ui.navigation.AlarmUiDependencies
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +31,7 @@ class WakeMoveApplication :
     Application(),
     SchedulingDependencies,
     RingingDependencies,
+    RingingDeliveryDependencies,
     AlarmUiDependencies {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -40,6 +45,10 @@ class WakeMoveApplication :
         private set
     override lateinit var ringingSessionController: RingingSessionController
         private set
+    override lateinit var alarmDeliveryDiagnostics: AlarmDeliveryDiagnostics
+        private set
+    override lateinit var alarmDeliveryCoordinator: AlarmDeliveryCoordinator
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -52,10 +61,17 @@ class WakeMoveApplication :
         val repository = RoomAlarmRepository(database.alarmDao())
         alarmRepository = repository
         healthService = AndroidHealthService(this)
+        alarmDeliveryDiagnostics = AlarmDeliveryDiagnostics(this)
         alarmScheduler = AndroidAlarmScheduler(
             context = this,
             alarmManager = getSystemService(AlarmManager::class.java),
             repository = repository,
+            deliveryDiagnostics = alarmDeliveryDiagnostics,
+        )
+        alarmDeliveryCoordinator = AlarmDeliveryCoordinator(
+            context = this,
+            scheduler = alarmScheduler,
+            diagnostics = alarmDeliveryDiagnostics,
         )
         pendingScheduleRecovery = PendingScheduleRecovery(repository, alarmScheduler)
         ringingSessionController = RingingSessionController(
@@ -64,10 +80,18 @@ class WakeMoveApplication :
             vibrator = AndroidAlarmVibrator(this),
             scheduler = alarmScheduler,
             pendingScheduleRecovery = pendingScheduleRecovery,
+            deliveryDiagnostics = alarmDeliveryDiagnostics,
+        )
+        val startupAlarmRecovery = StartupAlarmRecovery(
+            repository = repository,
+            scheduler = alarmScheduler,
+            pendingScheduleRecovery = pendingScheduleRecovery,
+            deliveryCoordinator = alarmDeliveryCoordinator,
+            diagnostics = alarmDeliveryDiagnostics,
         )
         applicationScope.launch {
             try {
-                pendingScheduleRecovery.recover()
+                startupAlarmRecovery.recover()
             } catch (error: Exception) {
                 Log.e(TAG, "Unable to recover pending alarm schedules at startup", error)
             }

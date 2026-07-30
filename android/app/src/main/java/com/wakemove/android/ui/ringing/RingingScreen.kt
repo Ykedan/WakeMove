@@ -129,7 +129,7 @@ fun RingingScreen(
         if (sensorsUnavailable) {
             Spacer(Modifier.height(16.dp))
             Text(
-                "相机和麦克风均不可用，可连续按住下方按钮 10 秒紧急停止",
+                "相机和麦克风均不可用，请先修复权限或使用紧急停止",
                 color = Color(0xFFFCA5A5),
                 fontSize = 14.sp,
             )
@@ -143,8 +143,9 @@ fun RingingScreen(
             ) {
                 Text("修复相机和麦克风权限")
             }
-            EmergencyHoldButton(onEmergencyBypass)
         }
+        Spacer(Modifier.height(16.dp))
+        EmergencyHoldButton(onEmergencyBypass)
     }
 }
 

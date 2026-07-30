@@ -71,23 +71,16 @@ class RingingServiceTest {
     }
 
     @Test
-    fun `notification snooze action carries alarm and session identity`() {
+    fun `notification uses Chinese copy and has no shortcut actions`() {
         val service = startedService()
         val notification = shadowOf(service).lastForegroundNotification
-        val sessionId = checkNotNull(application.repository.session).id
 
-        val snoozeIntent = shadowOf(notification.actions.single().actionIntent).savedIntent
-
-        assertEquals(RingingService.ACTION_SNOOZE, snoozeIntent.action)
+        assertEquals("WakeMove 正在响铃", notification.extras.getString("android.title"))
         assertEquals(
-            TEST_ALARM.id,
-            snoozeIntent.getStringExtra(AlarmReceiver.EXTRA_ALARM_ID),
+            "完成起床挑战后才能关闭",
+            notification.extras.getString("android.text"),
         )
-        assertEquals(
-            sessionId,
-            snoozeIntent.getStringExtra(RingingService.EXTRA_SESSION_ID),
-        )
-        assertNotNull(snoozeIntent.data)
+        assertTrue(notification.actions.isNullOrEmpty())
     }
 
     @Test

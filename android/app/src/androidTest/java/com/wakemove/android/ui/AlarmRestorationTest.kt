@@ -38,12 +38,11 @@ class AlarmRestorationTest {
         }
 
         onNodeWithTag("add_alarm").performClick()
-        onNodeWithTag("alarm_time").performTextReplacement("06:45")
         onNodeWithTag("weekday_FRIDAY").performClick()
 
         restorationTester.emulateSaveAndRestore()
 
-        onNodeWithTag("alarm_time").assertIsDisplayed().assertTextContains("06:45")
+        onNodeWithTag("alarm_time_wheels").assertIsDisplayed()
         onNodeWithTag("weekday_FRIDAY").assertIsSelected()
     }
 

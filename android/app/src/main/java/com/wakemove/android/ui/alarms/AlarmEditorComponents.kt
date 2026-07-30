@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
@@ -31,7 +30,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -45,7 +43,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wakemove.android.domain.ChallengeType
@@ -58,9 +55,10 @@ import java.time.DayOfWeek
 
 @Composable
 internal fun SunriseTimeCard(
-    timeText: String,
-    isTimeValid: Boolean,
-    onTimeChange: (String) -> Unit,
+    hour: Int,
+    minute: Int,
+    nextOccurrenceLabel: String,
+    onTimeChange: (hour: Int, minute: Int) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -80,32 +78,19 @@ internal fun SunriseTimeCard(
             fontWeight = FontWeight.SemiBold,
             color = WakeMoveText,
         )
-        OutlinedTextField(
-            value = timeText,
-            onValueChange = onTimeChange,
+        TimeWheelPicker(
+            hour = hour,
+            minute = minute,
+            onTimeChange = onTimeChange,
+        )
+        Text(
+            text = nextOccurrenceLabel,
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("alarm_time"),
-            textStyle = MaterialTheme.typography.displayMedium.copy(
-                textAlign = TextAlign.Center,
-            ),
-            placeholder = {
-                Text(
-                    text = "07:30",
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                )
-            },
-            supportingText = {
-                if (isTimeValid) {
-                    Text("24 小时制")
-                } else {
-                    Text("请选择有效时间")
-                }
-            },
-            isError = !isTimeValid,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            singleLine = true,
+                .testTag("next_occurrence_preview"),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium,
+            color = WakeMoveText.copy(alpha = 0.78f),
         )
     }
 }
@@ -126,8 +111,6 @@ internal fun WeekdaySelector(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(CircleShape)
-                    .background(if (selected) WakeMoveSunrise else WakeMovePeach)
                     .toggleable(
                         value = selected,
                         role = Role.Checkbox,
@@ -140,22 +123,36 @@ internal fun WeekdaySelector(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = day.shortChineseLabel(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = WakeMoveText,
-                )
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(if (selected) WakeMoveSunrise else WakeMovePeach),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = day.shortChineseLabel(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = WakeMoveText,
+                    )
+                }
                 if (selected) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = null,
+                    Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .size(16.dp)
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(2.dp)
                             .testTag("weekday_selected_marker_${day.name}"),
-                        tint = WakeMoveText,
-                    )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = WakeMoveText,
+                        )
+                    }
                 }
             }
         }

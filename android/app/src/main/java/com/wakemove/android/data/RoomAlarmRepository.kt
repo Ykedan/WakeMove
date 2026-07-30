@@ -37,6 +37,9 @@ class RoomAlarmRepository(
 
     override suspend fun activeSession(): RingingSession? = dao.activeSession()?.toDomain()
 
+    override fun observeActiveSession(): Flow<RingingSession?> =
+        dao.observeActiveSession().map { it?.toDomain() }
+
     override suspend fun transitionSession(
         session: RingingSession,
         expectedStatuses: Set<SessionStatus>,

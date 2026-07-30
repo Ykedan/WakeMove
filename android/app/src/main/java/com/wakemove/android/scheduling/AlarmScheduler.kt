@@ -12,6 +12,11 @@ interface AlarmScheduler {
 
     fun onAlarmDelivered(alarmId: String) = Unit
 
+    suspend fun registerNextRepeatAfterDelivery(
+        alarmId: String,
+        deliveredAt: Instant,
+    ): Instant? = null
+
     fun healthSnapshot(): SchedulerHealthSnapshot = SchedulerHealthSnapshot()
 }
 
@@ -24,6 +29,7 @@ enum class SchedulingResult {
 data class SchedulerHealthSnapshot(
     val lastResult: SchedulingResult = SchedulingResult.NEVER,
     val nextRegisteredAt: Instant? = null,
+    val latestDelivery: AlarmDeliveryRecord? = null,
 )
 
 class ExactAlarmPermissionRequiredException :

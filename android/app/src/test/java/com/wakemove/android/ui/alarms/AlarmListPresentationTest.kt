@@ -37,14 +37,15 @@ class AlarmListPresentationTest {
     }
 
     @Test
-    fun `one shot past its time is excluded`() {
+    fun `new one shot past its clock time is shown for tomorrow`() {
         val now = ZonedDateTime.of(2026, 7, 27, 8, 0, 0, 0, zone)
         val result = findNextEnabledAlarm(
             listOf(alarm("expired", 7, 0, days = emptySet())),
             now,
         )
 
-        assertNull(result)
+        assertEquals("expired", result?.alarm?.id)
+        assertEquals(now.toLocalDate().plusDays(1), result?.occurrence?.toLocalDate())
     }
 
     @Test

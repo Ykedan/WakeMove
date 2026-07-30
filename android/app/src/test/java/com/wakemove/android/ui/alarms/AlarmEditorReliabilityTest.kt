@@ -31,7 +31,8 @@ class AlarmEditorReliabilityTest {
         )
         val state = AlarmEditorUiState(
             draftId = "draft",
-            timeText = "09:00",
+            hour = 9,
+            minute = 0,
             challengeType = ChallengeType.SQUAT,
             targetCount = 5,
             health = health,
@@ -43,7 +44,7 @@ class AlarmEditorReliabilityTest {
     }
 
     @Test
-    fun `expired one shot is rejected before repository or scheduler mutation`() {
+    fun `past one shot time is saved for tomorrow`() {
         val repository = RecordingRepository()
         val scheduler = RecordingScheduler()
         val viewModel = AlarmEditorViewModel(
@@ -56,7 +57,8 @@ class AlarmEditorReliabilityTest {
         )
         val state = AlarmEditorUiState(
             draftId = "alarm",
-            timeText = "07:00",
+            hour = 7,
+            minute = 0,
             selectedDays = emptySet(),
             challengeType = ChallengeType.SQUAT,
             targetCount = 5,
@@ -65,18 +67,58 @@ class AlarmEditorReliabilityTest {
             validationZone = zone,
         )
 
-        val error = assertThrows(AlarmMutationException::class.java) {
-            runBlocking { viewModel.save(state) }
-        }
+        val saved = runBlocking { viewModel.save(state) }
 
-        assertTrue(error.message.orEmpty().contains("未来"))
-        assertEquals(0, repository.upserts)
+        assertEquals(java.time.LocalTime.of(7, 0), saved.time)
+        assertEquals(1, repository.upserts)
+        assertEquals(1, scheduler.reschedules)
+    }
+
+    @Test
+    fun `ringing or snoozed alarm cannot be disabled or deleted`() {
+        val repository = RecordingRepository().apply {
+            active = RingingSession(
+                id = "session",
+                alarmId = "alarm",
+                scheduledAt = now,
+                startedAt = now,
+                snoozeCount = 1,
+                challengeType = ChallengeType.SQUAT,
+                targetCount = 5,
+                status = SessionStatus.SNOOZED,
+                pendingScheduleAt = now.plusSeconds(300),
+            )
+        }
+        val scheduler = RecordingScheduler()
+        val alarm = Alarm(
+            id = "alarm",
+            time = java.time.LocalTime.of(7, 0),
+            label = "",
+            enabled = true,
+            repeatDays = emptySet(),
+            soundId = "default",
+            vibrationEnabled = true,
+            challengeType = ChallengeType.SQUAT,
+            targetCount = 5,
+            createdAt = now,
+            updatedAt = now,
+        )
+        val list = AlarmListViewModel(repository, scheduler, { readyHealth })
+        val editor = AlarmEditorViewModel(repository, scheduler, { readyHealth })
+
+        assertThrows(AlarmMutationException::class.java) {
+            runBlocking { list.setEnabled(alarm, false) }
+        }
+        assertThrows(AlarmMutationException::class.java) {
+            runBlocking { editor.delete(alarm.id) }
+        }
         assertEquals(0, scheduler.reschedules)
     }
 }
 
 private class RecordingRepository : AlarmRepository {
     var upserts = 0
+    var active: RingingSession? = null
     override fun observeAlarms(): Flow<List<Alarm>> = flowOf(emptyList())
     override suspend fun upsertAlarm(alarm: Alarm) {
         upserts += 1
@@ -84,7 +126,7 @@ private class RecordingRepository : AlarmRepository {
     override suspend fun deleteAlarm(id: String) = Unit
     override suspend fun getAlarm(id: String): Alarm? = null
     override suspend fun saveSession(session: RingingSession) = Unit
-    override suspend fun activeSession(): RingingSession? = null
+    override suspend fun activeSession(): RingingSession? = active
     override suspend fun transitionSession(
         session: RingingSession,
         expectedStatuses: Set<SessionStatus>,

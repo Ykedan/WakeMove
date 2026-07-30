@@ -16,7 +16,10 @@ import android.os.VibrationAttributes
 import android.os.Vibrator
 import android.os.VibratorManager
 import com.wakemove.android.MainActivity
+import com.wakemove.android.scheduling.AlarmDeliveryDiagnostics
 import com.wakemove.android.scheduling.AlarmReceiver
+import com.wakemove.android.scheduling.DeliveryStage
+import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,11 +34,16 @@ interface RingingDependencies {
     val ringingSessionController: RingingSessionController
 }
 
+interface RingingDeliveryDependencies {
+    val alarmDeliveryDiagnostics: AlarmDeliveryDiagnostics
+}
+
 class RingingService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val binder = RingingBinder()
     private val commandMutex = Mutex()
     private lateinit var controller: RingingSessionController
+    private lateinit var deliveryDiagnostics: AlarmDeliveryDiagnostics
     private var wakeLock: PowerManager.WakeLock? = null
     private var ownership: SessionOwnership? = null
     private var terminalObservation: Job? = null
@@ -45,13 +53,29 @@ class RingingService : Service() {
         val dependencies = applicationContext as? RingingDependencies
             ?: error("Application must implement RingingDependencies")
         controller = dependencies.ringingSessionController
+        deliveryDiagnostics =
+            (applicationContext as? RingingDeliveryDependencies)
+                ?.alarmDeliveryDiagnostics
+                ?: AlarmDeliveryDiagnostics(this)
         createNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val alarmId = intent?.getStringExtra(AlarmReceiver.EXTRA_ALARM_ID)
         val sessionId = intent?.getStringExtra(EXTRA_SESSION_ID)
+        val scheduledAt = intent?.getLongExtra(
+            AlarmReceiver.EXTRA_SCHEDULED_AT_MILLIS,
+            0L,
+        )?.takeIf { it > 0L }?.let(Instant::ofEpochMilli)
+            ?: Instant.now()
         startForegroundImmediately(alarmId, sessionId)
+        if (alarmId != null && intent.action == AlarmReceiver.ACTION_START_RINGING) {
+            deliveryDiagnostics.record(
+                alarmId,
+                scheduledAt,
+                DeliveryStage.SERVICE_STARTED,
+            )
+        }
         acquireWakeLock()
 
         serviceScope.launch {
@@ -59,7 +83,7 @@ class RingingService : Service() {
                 try {
                     when (intent?.action) {
                         AlarmReceiver.ACTION_START_RINGING ->
-                            handleStart(alarmId, startId)
+                            handleStart(alarmId, scheduledAt, startId)
 
                         ACTION_SNOOZE, ACTION_COMPLETE, ACTION_BYPASS ->
                             handleSessionCommand(
@@ -90,7 +114,11 @@ class RingingService : Service() {
         super.onDestroy()
     }
 
-    private suspend fun handleStart(alarmId: String?, startId: Int) {
+    private suspend fun handleStart(
+        alarmId: String?,
+        scheduledAt: Instant,
+        startId: Int,
+    ) {
         if (alarmId == null) {
             rejectCommand(startId)
             return
@@ -107,6 +135,20 @@ class RingingService : Service() {
         }
 
         claimSession(startId, alarmId, session.id)
+        if (state.soundState == AlarmSoundState.PLAYING) {
+            deliveryDiagnostics.record(
+                alarmId,
+                scheduledAt,
+                DeliveryStage.AUDIO_STARTED,
+                sessionId = session.id,
+            )
+        }
+        deliveryDiagnostics.record(
+            alarmId,
+            scheduledAt,
+            DeliveryStage.RINGING,
+            sessionId = session.id,
+        )
         controller.recoverPendingSchedules()
     }
 
@@ -199,34 +241,22 @@ class RingingService : Service() {
     private fun startForegroundImmediately(alarmId: String?, sessionId: String?) {
         val builder = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("WakeMove alarm")
-            .setContentText("Complete your wake-up challenge")
+            .setContentTitle("WakeMove 正在响铃")
+            .setContentText("完成起床挑战后才能关闭")
             .setCategory(Notification.CATEGORY_ALARM)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(fullScreenIntent(alarmId, sessionId))
             .setFullScreenIntent(fullScreenIntent(alarmId, sessionId), true)
-        if (alarmId != null && sessionId != null &&
-            controller.state.value.canSnooze(alarmId, sessionId)
-        ) {
-            builder.addAction(
-                Notification.Action.Builder(
-                    null,
-                    "Snooze",
-                    servicePendingIntent(
-                        action = ACTION_SNOOZE,
-                        requestCode = REQUEST_SNOOZE,
-                        alarmId = alarmId,
-                        sessionId = sessionId,
-                    ),
-                ).build(),
-            )
-        }
         startForeground(
             NOTIFICATION_ID,
             builder.build(),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            },
         )
     }
 
@@ -302,7 +332,6 @@ class RingingService : Service() {
 
         private const val NOTIFICATION_ID = 10_001
         private const val REQUEST_FULL_SCREEN = 20_001
-        private const val REQUEST_SNOOZE = 20_002
         private const val WAKE_LOCK_TAG = "WakeMove:Ringing"
         private const val WAKE_LOCK_TIMEOUT_MILLIS = 15 * 60 * 1_000L
     }

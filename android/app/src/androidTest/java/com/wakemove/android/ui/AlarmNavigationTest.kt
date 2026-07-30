@@ -64,14 +64,13 @@ class AlarmNavigationTest {
         setNavContent(repository, scheduler)
 
         composeRule.onNodeWithTag("add_alarm").performClick()
-        composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
         composeRule.onNodeWithTag("weekday_MONDAY").performScrollTo().performClick()
         composeRule.onNodeWithTag("save_alarm").performClick()
 
         composeRule.onNodeWithText("保存失败，闹钟状态已恢复")
             .performScrollTo()
             .assertIsDisplayed()
-        composeRule.onNodeWithTag("alarm_time").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm_time_wheels").performScrollTo().assertIsDisplayed()
         composeRule.runOnIdle { assertEquals(0, repository.alarmCount) }
     }
 
@@ -89,7 +88,6 @@ class AlarmNavigationTest {
         setNavContent(repository, scheduler)
 
         composeRule.onNodeWithTag("add_alarm").performClick()
-        composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
         composeRule.onNodeWithTag("weekday_MONDAY").performScrollTo().performClick()
         composeRule.onNodeWithTag("save_alarm").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
@@ -117,7 +115,6 @@ class AlarmNavigationTest {
         setNavContent(repository, scheduler)
 
         composeRule.onNodeWithTag("add_alarm").performClick()
-        composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
         composeRule.onNodeWithTag("weekday_MONDAY").performScrollTo().performClick()
         composeRule.onNodeWithTag("save_alarm").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
@@ -127,7 +124,7 @@ class AlarmNavigationTest {
 
         Espresso.pressBack()
 
-        composeRule.onNodeWithTag("alarm_time").assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm_time_wheels").assertIsDisplayed()
         composeRule.onNodeWithTag("submission_progress").assertIsDisplayed()
         release.complete(Unit)
         composeRule.waitUntil(timeoutMillis = 5_000) { repository.alarmCount == 1 }
@@ -139,7 +136,7 @@ class AlarmNavigationTest {
         setNavContent(repository, FakeAlarmScheduler())
 
         composeRule.onNodeWithTag("add_alarm").performClick()
-        composeRule.onNodeWithTag("alarm_time").assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm_time_wheels").assertIsDisplayed()
         Espresso.pressBack()
 
         composeRule.onNodeWithText("还没有闹钟").assertIsDisplayed()
@@ -148,14 +145,14 @@ class AlarmNavigationTest {
     @Test
     fun allWeekdaysRemainVisibleAndUsableAtNarrowWidth() {
         var state by mutableStateOf(
-            AlarmEditorUiState(timeText = "07:30", health = readyHealth),
+            AlarmEditorUiState(hour = 7, minute = 30, health = readyHealth),
         )
         composeRule.setContent {
             WakeMoveTheme {
                 Box(Modifier.width(320.dp)) {
                     AlarmEditorScreen(
                         state = state,
-                        onTimeChange = {},
+                        onTimeChange = { _, _ -> },
                         onDayToggle = { day ->
                             state = state.copy(selectedDays = state.selectedDays + day)
                         },

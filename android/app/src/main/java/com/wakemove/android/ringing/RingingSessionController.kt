@@ -9,6 +9,8 @@ import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.ScheduleCalculator
 import com.wakemove.android.domain.SessionStatus
 import com.wakemove.android.scheduling.AlarmScheduler
+import com.wakemove.android.scheduling.AlarmDeliveryDiagnostics
+import com.wakemove.android.scheduling.DeliveryStage
 import com.wakemove.android.scheduling.PendingScheduleRecovery
 import java.time.Clock
 import java.time.ZoneId
@@ -44,6 +46,7 @@ class RingingSessionController(
     private val clock: Clock = Clock.systemUTC(),
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
     private val sessionIdFactory: () -> String = { UUID.randomUUID().toString() },
+    private val deliveryDiagnostics: AlarmDeliveryDiagnostics? = null,
 ) {
     private val transitionMutex = Mutex()
     private val mutableState = MutableStateFlow(RingingUiState())
@@ -93,6 +96,7 @@ class RingingSessionController(
             active.status == SessionStatus.SNOOZED -> {
                 val ringing = active.copy(
                     status = SessionStatus.RINGING,
+                    startedAt = clock.instant(),
                     pendingScheduleAt = null,
                 )
                 val transitioned = repository.transitionSession(
@@ -166,6 +170,13 @@ class RingingSessionController(
             ?.takeIf { it.id == snoozed.id && it.status == SessionStatus.SNOOZED }
             ?: snoozed.copy(pendingScheduleAt = null)
         stopAlerting(alarm, persisted)
+        deliveryDiagnostics?.record(
+            alarmId = alarm.id,
+            scheduledAt = session.scheduledAt,
+            stage = DeliveryStage.SNOOZED,
+            sessionId = snoozed.id,
+            nextRepeatAt = trigger,
+        )
         true
     }
 
@@ -232,6 +243,17 @@ class RingingSessionController(
         } finally {
             stopAlerting(currentAlarm, terminal)
         }
+        deliveryDiagnostics?.record(
+            alarmId = alarm.id,
+            scheduledAt = session.scheduledAt,
+            stage = when (status) {
+                SessionStatus.COMPLETED -> DeliveryStage.COMPLETED
+                SessionStatus.BYPASSED -> DeliveryStage.BYPASSED
+                else -> DeliveryStage.FAILED
+            },
+            sessionId = session.id,
+            nextRepeatAt = nextRepeatAt,
+        )
         true
     }
 

@@ -112,6 +112,7 @@ fun WakeMoveNavHost(
         factory = editorFactory,
     )
     val alarms by listViewModel.alarms.collectAsState(initial = emptyList())
+    val activeSession by listViewModel.activeSession.collectAsState(initial = null)
     val listOperation by listViewModel.operationState.collectAsState()
     val editorOperation by editorViewModel.operationState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -145,7 +146,9 @@ fun WakeMoveNavHost(
             AlarmEditorScreen(
                 state = editorState,
                 operationState = editorOperation,
-                onTimeChange = { editorState = editorState.copy(timeText = it) },
+                onTimeChange = { hour, minute ->
+                    editorState = editorState.copy(hour = hour, minute = minute)
+                },
                 onLabelChange = { editorState = editorState.copy(label = it) },
                 onDayToggle = { day ->
                     editorState = editorState.copy(
@@ -201,6 +204,7 @@ fun WakeMoveNavHost(
             MainShell(
                 destination = destination,
                 alarms = alarms,
+                activeSession = activeSession,
                 operationState = listOperation,
                 onDestinationSelected = { selected -> route = selected.route },
                 onCreateAlarm = {
@@ -233,6 +237,7 @@ fun WakeMoveNavHost(
 private fun MainShell(
     destination: MainDestination,
     alarms: List<Alarm>,
+    activeSession: com.wakemove.android.domain.RingingSession?,
     operationState: com.wakemove.android.ui.alarms.AlarmOperationUiState,
     onDestinationSelected: (MainDestination) -> Unit,
     onCreateAlarm: () -> Unit,
@@ -288,6 +293,7 @@ private fun MainShell(
             when (destination) {
                 MainDestination.ALARMS -> AlarmListScreen(
                     alarms = alarms,
+                    activeSession = activeSession,
                     operationState = operationState,
                     onCreateAlarm = onCreateAlarm,
                     onEditAlarm = onEditAlarm,
@@ -318,7 +324,8 @@ private fun alarmEditorStateSaver(
         listOf(
             state.draftId,
             state.alarmId.orEmpty(),
-            state.timeText,
+            state.hour,
+            state.minute,
             state.label,
             state.selectedDays.joinToString(",") { it.name },
             state.challengeType.name,
@@ -329,14 +336,15 @@ private fun alarmEditorStateSaver(
         AlarmEditorUiState(
             draftId = saved[0] as String,
             alarmId = (saved[1] as String).ifBlank { null },
-            timeText = saved[2] as String,
-            label = saved[3] as String,
-            selectedDays = (saved[4] as String)
+            hour = saved[2] as Int,
+            minute = saved[3] as Int,
+            label = saved[4] as String,
+            selectedDays = (saved[5] as String)
                 .split(',')
                 .filter(String::isNotBlank)
                 .mapTo(linkedSetOf()) { enumValueOf<DayOfWeek>(it) },
-            challengeType = enumValueOf<ChallengeType>(saved[5] as String),
-            targetCount = saved[6] as Int,
+            challengeType = enumValueOf<ChallengeType>(saved[6] as String),
+            targetCount = saved[7] as Int,
             health = healthProvider(),
         )
     },

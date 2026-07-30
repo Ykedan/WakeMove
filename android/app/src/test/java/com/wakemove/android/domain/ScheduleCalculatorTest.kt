@@ -25,11 +25,14 @@ class ScheduleCalculatorTest {
     }
 
     @Test
-    fun expired_one_shot_alarm_returns_null() {
+    fun past_clock_time_for_new_one_shot_rolls_to_tomorrow() {
         val alarm = alarmAt(7, 30)
         val now = ZonedDateTime.parse("2026-07-24T08:00:00+08:00[Asia/Shanghai]")
 
-        assertEquals(null, ScheduleCalculator.nextOccurrence(alarm, now))
+        assertEquals(
+            ZonedDateTime.parse("2026-07-25T07:30:00+08:00[Asia/Shanghai]"),
+            ScheduleCalculator.nextOccurrence(alarm, now),
+        )
     }
 
     @Test
@@ -66,6 +69,22 @@ class ScheduleCalculatorTest {
 
         assertEquals(
             ZonedDateTime.parse("2026-07-27T07:30:00+08:00[Asia/Shanghai]"),
+            ScheduleCalculator.nextOccurrence(alarm, now),
+        )
+    }
+
+    @Test
+    fun daily_alarm_created_at_0020_schedules_0030_the_same_day() {
+        val alarm = alarmAt(
+            hour = 0,
+            minute = 30,
+            repeatDays = DayOfWeek.entries.toSet(),
+            updatedAt = Instant.parse("2026-07-29T16:20:00Z"),
+        )
+        val now = ZonedDateTime.parse("2026-07-30T00:20:00+08:00[Asia/Shanghai]")
+
+        assertEquals(
+            ZonedDateTime.parse("2026-07-30T00:30:00+08:00[Asia/Shanghai]"),
             ScheduleCalculator.nextOccurrence(alarm, now),
         )
     }

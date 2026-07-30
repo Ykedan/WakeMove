@@ -45,6 +45,7 @@ import com.wakemove.android.health.HealthSnapshot
 import com.wakemove.android.health.HealthStatus
 import com.wakemove.android.scheduling.SchedulerHealthSnapshot
 import com.wakemove.android.scheduling.SchedulingResult
+import com.wakemove.android.scheduling.DeliveryStage
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -124,6 +125,31 @@ fun HealthScreen(
                 }"
             } ?: "下次已注册：暂无",
         )
+        scheduling.latestDelivery?.let { delivery ->
+            Text(
+                text = "最近投递：${delivery.stage.chineseLabel()} · ${
+                    delivery.stageAt.atZone(zoneId)
+                        .format(DateTimeFormatter.ofPattern("MM-dd HH:mm:ss"))
+                }",
+                modifier = Modifier.testTag("latest_delivery_stage"),
+            )
+            if (delivery.stage == DeliveryStage.FAILED) {
+                Text(
+                    text = "失败位置：${delivery.failureStage?.chineseLabel() ?: "未知"}" +
+                        (delivery.failureClass?.let { "（$it）" } ?: ""),
+                    modifier = Modifier.testTag("latest_delivery_failure"),
+                )
+            }
+        }
+        if (snapshot.batteryOptimization != HealthStatus.READY &&
+            (Build.MANUFACTURER.contains("xiaomi", ignoreCase = true) ||
+                Build.BRAND.contains("redmi", ignoreCase = true))
+        ) {
+            Text(
+                text = "小米/Redmi：请将 WakeMove 的省电策略设为“无限制”，并允许后台活动。",
+                modifier = Modifier.testTag("xiaomi_battery_guidance"),
+            )
+        }
         healthRows(snapshot).forEach { row ->
             Card(Modifier.fillMaxWidth()) {
                 Row(
@@ -264,8 +290,23 @@ private fun HealthIssue.tag(): String = when (this) {
 
 private fun SchedulingResult.label(): String = when (this) {
     SchedulingResult.NEVER -> "暂无记录"
-    SchedulingResult.SUCCESS -> "成功"
-    SchedulingResult.FAILURE -> "失败"
+    SchedulingResult.SUCCESS -> "登记成功"
+    SchedulingResult.FAILURE -> "登记失败"
+}
+
+private fun DeliveryStage.chineseLabel(): String = when (this) {
+    DeliveryStage.REGISTERED -> "已登记到系统"
+    DeliveryStage.DELIVERED -> "目标时间已投递"
+    DeliveryStage.NEXT_REPEAT_REGISTERED -> "下一次重复已登记"
+    DeliveryStage.SERVICE_START_REQUESTED -> "已请求启动响铃"
+    DeliveryStage.SERVICE_STARTED -> "响铃服务已启动"
+    DeliveryStage.AUDIO_STARTED -> "声音已开始"
+    DeliveryStage.RINGING -> "正在响铃"
+    DeliveryStage.SNOOZED -> "正在贪睡"
+    DeliveryStage.COMPLETED -> "挑战已完成"
+    DeliveryStage.BYPASSED -> "已紧急停止"
+    DeliveryStage.MISSED -> "已错过"
+    DeliveryStage.FAILED -> "投递失败"
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

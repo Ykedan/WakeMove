@@ -771,7 +771,7 @@ class RingingFlowTest {
         }
         composeRule.onNodeWithTag("repair_exact_alarm").performClick()
         composeRule.runOnIdle { assertEquals(HealthIssue.EXACT_ALARM, repaired) }
-        composeRule.onNodeWithText("最近调度：成功").assertIsDisplayed()
+        composeRule.onNodeWithText("最近调度：登记成功").assertIsDisplayed()
         composeRule.onNodeWithText("下次已注册：07-28 08:30").assertIsDisplayed()
         composeRule.onNodeWithTag("repair_battery_optimization").assertIsDisplayed()
     }
@@ -895,7 +895,7 @@ class RingingFlowTest {
         }
 
         composeRule.onNodeWithTag("repair_battery_optimization").assertDoesNotExist()
-        composeRule.onNodeWithText("最近调度：成功").assertIsDisplayed()
+        composeRule.onNodeWithText("最近调度：登记成功").assertIsDisplayed()
         composeRule.onNodeWithText("下次已注册：07-28 08:30").assertIsDisplayed()
         composeRule.runOnIdle {
             assertEquals(2, healthReads)

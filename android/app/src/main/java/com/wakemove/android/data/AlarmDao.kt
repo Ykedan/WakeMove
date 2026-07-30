@@ -49,6 +49,16 @@ abstract class AlarmDao {
     @Query(
         """
         SELECT * FROM ringing_sessions
+        WHERE status IN ('RINGING', 'SNOOZED')
+        ORDER BY started_at_epoch_second DESC, started_at_nano DESC, id DESC
+        LIMIT 1
+        """,
+    )
+    abstract fun observeActiveSession(): Flow<RingingSessionEntity?>
+
+    @Query(
+        """
+        SELECT * FROM ringing_sessions
         WHERE pending_schedule_at_epoch_second IS NOT NULL
         ORDER BY
             pending_schedule_at_epoch_second ASC,

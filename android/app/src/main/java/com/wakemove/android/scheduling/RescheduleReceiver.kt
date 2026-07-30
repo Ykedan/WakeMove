@@ -12,6 +12,7 @@ import kotlinx.coroutines.runBlocking
 interface SchedulingDependencies {
     val alarmScheduler: AlarmScheduler
     val pendingScheduleRecovery: PendingScheduleRecovery
+    val alarmDeliveryCoordinator: AlarmDeliveryCoordinator
 }
 
 class RescheduleReceiver() : BroadcastReceiver() {

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
+import com.wakemove.android.domain.ScheduleCalculator
 import com.wakemove.android.health.HealthSnapshot
 import com.wakemove.android.scheduling.AlarmScheduler
 import java.time.DayOfWeek
@@ -12,7 +13,8 @@ import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.time.format.DateTimeParseException
+import java.time.Duration
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +27,8 @@ import kotlinx.coroutines.sync.withLock
 data class AlarmEditorUiState(
     val draftId: String = "",
     val alarmId: String? = null,
-    val timeText: String = "",
+    val hour: Int = 7,
+    val minute: Int = 30,
     val label: String = "",
     val selectedDays: Set<DayOfWeek> = emptySet(),
     val challengeType: ChallengeType = ChallengeType.SQUAT,
@@ -34,12 +37,8 @@ data class AlarmEditorUiState(
     val validationInstant: Instant = Instant.EPOCH,
     val validationZone: ZoneId = ZoneId.systemDefault(),
 ) {
-    val parsedTime: LocalTime?
-        get() = try {
-            LocalTime.parse(timeText)
-        } catch (_: DateTimeParseException) {
-            null
-        }
+    val selectedTime: LocalTime
+        get() = LocalTime.of(hour, minute)
 
     val healthMessage: String?
         get() = when {
@@ -47,19 +46,46 @@ data class AlarmEditorUiState(
             else -> null
         }
 
-    val scheduleMessage: String?
+    val nextOccurrence: ZonedDateTime
         get() {
-            val time = parsedTime ?: return null
-            if (selectedDays.isNotEmpty()) return null
             val now = ZonedDateTime.ofInstant(validationInstant, validationZone)
-            val occurrence = ZonedDateTime.of(now.toLocalDate(), time, validationZone)
-            return if (occurrence.isAfter(now)) null else "单次闹钟必须选择未来时间"
+            val previewAlarm = Alarm(
+                id = alarmId ?: draftId,
+                time = selectedTime,
+                label = label,
+                enabled = true,
+                repeatDays = selectedDays,
+                soundId = "default",
+                vibrationEnabled = true,
+                challengeType = challengeType,
+                targetCount = targetCount,
+                createdAt = validationInstant,
+                updatedAt = validationInstant,
+            )
+            return checkNotNull(ScheduleCalculator.nextOccurrence(previewAlarm, now))
+        }
+
+    val nextOccurrenceLabel: String
+        get() {
+            val now = ZonedDateTime.ofInstant(validationInstant, validationZone)
+            val next = nextOccurrence
+            val dayLabel = when (next.toLocalDate()) {
+                now.toLocalDate() -> "今天"
+                now.toLocalDate().plusDays(1) -> "明天"
+                else -> next.format(DateTimeFormatter.ofPattern("M月d日"))
+            }
+            val minutes = Duration.between(now, next).toMinutes().coerceAtLeast(1)
+            val relative = when {
+                minutes < 60 -> "约 $minutes 分钟后"
+                else -> "约 ${minutes / 60} 小时后"
+            }
+            return "下一次响铃：$dayLabel ${next.format(TIME_FORMAT)}（$relative）"
         }
 
     val canSave: Boolean
-        get() = parsedTime != null &&
+        get() = hour in 0..23 &&
+            minute in 0..59 &&
             healthMessage == null &&
-            scheduleMessage == null &&
             (challengeType == ChallengeType.VOICE_PHRASE || targetCount > 0)
 
     companion object {
@@ -71,7 +97,8 @@ data class AlarmEditorUiState(
         ) = AlarmEditorUiState(
             draftId = alarm.id,
             alarmId = alarm.id,
-            timeText = alarm.time.toString(),
+            hour = alarm.time.hour,
+            minute = alarm.time.minute,
             label = alarm.label,
             selectedDays = alarm.repeatDays,
             challengeType = alarm.challengeType,
@@ -98,6 +125,8 @@ class AlarmListViewModel(
     private val _operationState = MutableStateFlow(AlarmOperationUiState())
     val operationState: StateFlow<AlarmOperationUiState> = _operationState.asStateFlow()
     val alarms: Flow<List<Alarm>> = repository.observeAlarms()
+    val activeSession: Flow<com.wakemove.android.domain.RingingSession?> =
+        repository.observeActiveSession()
 
     fun submitEnabledChange(alarm: Alarm, enabled: Boolean) {
         if (_operationState.value.isInFlight) return
@@ -115,6 +144,7 @@ class AlarmListViewModel(
     }
 
     suspend fun setEnabled(alarm: Alarm, enabled: Boolean) = mutationMutex.withLock {
+        requireAlarmIsMutable(alarm.id)
         val previous = repository.getAlarm(alarm.id) ?: alarm
         if (enabled) {
             val currentHealth = healthProvider()
@@ -134,6 +164,12 @@ class AlarmListViewModel(
             instantProvider = instantProvider,
         )
     }
+
+    private suspend fun requireAlarmIsMutable(alarmId: String) {
+        if (repository.activeSession()?.alarmId == alarmId) {
+            throw AlarmMutationException("闹钟正在响铃或贪睡中，完成挑战后才能修改")
+        }
+    }
 }
 
 class AlarmEditorViewModel(
@@ -151,12 +187,19 @@ class AlarmEditorViewModel(
     private var completedFingerprint: AlarmEditorUiState? = null
     private var completedAlarm: Alarm? = null
 
-    fun newState(): AlarmEditorUiState = AlarmEditorUiState(
-        draftId = idProvider(),
-        health = healthProvider(),
-        validationInstant = instantProvider(),
-        validationZone = zoneProvider(),
-    )
+    fun newState(): AlarmEditorUiState {
+        val now = instantProvider()
+        val zone = zoneProvider()
+        val time = defaultTime(now, zone)
+        return AlarmEditorUiState(
+            draftId = idProvider(),
+            hour = time.hour,
+            minute = time.minute,
+            health = healthProvider(),
+            validationInstant = now,
+            validationZone = zone,
+        )
+    }
 
     suspend fun stateFor(alarmId: String): AlarmEditorUiState? =
         repository.getAlarm(alarmId)?.let { alarm ->
@@ -212,19 +255,19 @@ class AlarmEditorViewModel(
         if (!currentState.canSave) {
             throw AlarmMutationException(
                 currentState.healthMessage
-                    ?: currentState.scheduleMessage
                     ?: "闹钟设置无效",
             )
         }
         val now = instantProvider()
         val existing = state.alarmId?.let { repository.getAlarm(it) }
+        if (existing != null) requireAlarmIsMutable(existing.id)
         val alarm = Alarm(
             id = existing?.id ?: state.draftId.ifBlank {
                 pendingCreateId ?: idProvider().also {
                     pendingCreateId = it
                 }
             },
-            time = checkNotNull(state.parsedTime),
+            time = state.selectedTime,
             label = state.label.trim(),
             enabled = existing?.enabled ?: true,
             repeatDays = state.selectedDays,
@@ -254,6 +297,7 @@ class AlarmEditorViewModel(
     }
 
     suspend fun delete(alarmId: String) {
+        requireAlarmIsMutable(alarmId)
         scheduler.cancel(alarmId)
         repository.deleteAlarm(alarmId)
         scheduler.rescheduleAll()
@@ -263,6 +307,25 @@ class AlarmEditorViewModel(
         private const val DEFAULT_SOUND_ID = "default"
         private const val DEFAULT_SNOOZE_MINUTES = 5
         private const val DEFAULT_SNOOZE_LIMIT = 3
+    }
+
+    private fun defaultTime(now: Instant, zone: ZoneId): LocalTime {
+        val localNow = ZonedDateTime.ofInstant(now, zone)
+        val minutesFromMidnight = localNow.hour * 60 + localNow.minute
+        val rounded = ((minutesFromMidnight / 5) + 1) * 5
+        return LocalTime.of((rounded / 60) % 24, rounded % 60)
+    }
+
+    private suspend fun requireAlarmIsMutable(alarmId: String) {
+        val active = repository.activeSession()
+        if (active?.alarmId == alarmId &&
+            active.status in setOf(
+                com.wakemove.android.domain.SessionStatus.RINGING,
+                com.wakemove.android.domain.SessionStatus.SNOOZED,
+            )
+        ) {
+            throw AlarmMutationException("闹钟正在响铃或贪睡中，完成挑战后才能修改")
+        }
     }
 }
 
@@ -309,3 +372,5 @@ private suspend fun persistAndReconcile(
         )
     }
 }
+
+private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")

@@ -45,7 +45,7 @@ import java.time.DayOfWeek
 fun AlarmEditorScreen(
     state: AlarmEditorUiState,
     operationState: AlarmOperationUiState = AlarmOperationUiState(),
-    onTimeChange: (String) -> Unit,
+    onTimeChange: (hour: Int, minute: Int) -> Unit,
     onDayToggle: (DayOfWeek) -> Unit,
     onChallengeSelected: (ChallengeType) -> Unit,
     onTargetCountChange: (Int) -> Unit,
@@ -124,8 +124,9 @@ fun AlarmEditorScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             SunriseTimeCard(
-                timeText = state.timeText,
-                isTimeValid = state.parsedTime != null,
+                hour = state.hour,
+                minute = state.minute,
+                nextOccurrenceLabel = state.nextOccurrenceLabel,
                 onTimeChange = onTimeChange,
             )
 
@@ -167,9 +168,6 @@ fun AlarmEditorScreen(
             }
 
             state.healthMessage?.let { message ->
-                EditorAlertCard(message)
-            }
-            state.scheduleMessage?.let { message ->
                 EditorAlertCard(message)
             }
             operationState.errorMessage?.let { message ->

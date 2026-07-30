@@ -1,6 +1,7 @@
 package com.wakemove.android.domain
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 interface AlarmRepository {
     fun observeAlarms(): Flow<List<Alarm>>
@@ -14,6 +15,10 @@ interface AlarmRepository {
     suspend fun saveSession(session: RingingSession)
 
     suspend fun activeSession(): RingingSession?
+
+    fun observeActiveSession(): Flow<RingingSession?> = flow {
+        emit(activeSession())
+    }
 
     suspend fun transitionSession(
         session: RingingSession,

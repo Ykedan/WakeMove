@@ -25,6 +25,8 @@ class AndroidAlarmScheduler(
     private val repository: AlarmRepository,
     private val clock: Clock = Clock.systemUTC(),
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
+    private val deliveryDiagnostics: AlarmDeliveryDiagnostics =
+        AlarmDeliveryDiagnostics(context),
 ) : AlarmScheduler {
     private val appContext = context.applicationContext
     private val diagnostics = appContext.getSharedPreferences(
@@ -55,7 +57,11 @@ class AndroidAlarmScheduler(
             }
 
             val operation = checkNotNull(
-                alarmPendingIntent(alarm.id, PendingIntent.FLAG_UPDATE_CURRENT),
+                alarmPendingIntent(
+                    alarm.id,
+                    PendingIntent.FLAG_UPDATE_CURRENT,
+                    scheduledAt = at,
+                ),
             )
             val showIntent = PendingIntent.getActivity(
                 appContext,
@@ -69,6 +75,11 @@ class AndroidAlarmScheduler(
             registeredAlarms[alarm.id] = at
             lastResult = SchedulingResult.SUCCESS
             persistSchedule(alarm.id, at)
+            deliveryDiagnostics.record(
+                alarmId = alarm.id,
+                scheduledAt = at,
+                stage = DeliveryStage.REGISTERED,
+            )
         } catch (error: RuntimeException) {
             registeredAlarms.remove(alarm.id)
             lastResult = SchedulingResult.FAILURE
@@ -84,10 +95,8 @@ class AndroidAlarmScheduler(
         try {
             alarmPendingIntent(alarmId, PendingIntent.FLAG_NO_CREATE)?.let(alarmManager::cancel)
             registeredAlarms.remove(alarmId)
-            lastResult = SchedulingResult.SUCCESS
             diagnostics.edit()
                 .remove(KEY_ALARM_PREFIX + alarmId)
-                .putString(KEY_LAST_RESULT, lastResult.name)
                 .apply()
         } catch (error: RuntimeException) {
             lastResult = SchedulingResult.FAILURE
@@ -116,12 +125,9 @@ class AndroidAlarmScheduler(
 
             if (occurrence == null) {
                 if (alarm.enabled && alarm.repeatDays.isEmpty()) {
-                    val intendedDate = alarm.updatedAt.atZone(now.zone).toLocalDate()
-                    val scheduledAt = ZonedDateTime.of(
-                        intendedDate,
-                        alarm.time,
-                        now.zone,
-                    ).toInstant()
+                    val scheduledAt = ScheduleCalculator
+                        .oneShotTarget(alarm, now.zone)
+                        .toInstant()
                     val event = AlarmEvent(
                         id = "missed:${alarm.id}:${scheduledAt.epochSecond}:${scheduledAt.nano}",
                         alarmId = alarm.id,
@@ -148,19 +154,43 @@ class AndroidAlarmScheduler(
         }
     }
 
+    override suspend fun registerNextRepeatAfterDelivery(
+        alarmId: String,
+        deliveredAt: Instant,
+    ): Instant? {
+        val alarm = repository.getAlarm(alarmId)
+            ?.takeIf { it.enabled && it.repeatDays.isNotEmpty() }
+            ?: return null
+        val reference = maxOf(clock.instant(), deliveredAt).plusMillis(1)
+        val next = ScheduleCalculator.nextOccurrence(
+            alarm,
+            ZonedDateTime.ofInstant(reference, zoneProvider()),
+        ) ?: return null
+        return next.toInstant().also { schedule(alarm, it) }
+    }
+
     override fun healthSnapshot() = SchedulerHealthSnapshot(
         lastResult = lastResult,
         nextRegisteredAt = registeredAlarms.values.minOrNull(),
+        latestDelivery = deliveryDiagnostics.latest(),
     )
 
-    private fun alarmPendingIntent(alarmId: String, lookupFlag: Int): PendingIntent? =
+    private fun alarmPendingIntent(
+        alarmId: String,
+        lookupFlag: Int,
+        scheduledAt: Instant? = null,
+    ): PendingIntent? =
         PendingIntent.getBroadcast(
             appContext,
             requestCodeForAlarm(alarmId),
             Intent(appContext, AlarmReceiver::class.java)
                 .setAction(AlarmReceiver.ACTION_ALARM_FIRED)
                 .setData(alarmUri(alarmId))
-                .putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId),
+                .putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
+                .putExtra(
+                    AlarmReceiver.EXTRA_SCHEDULED_AT_MILLIS,
+                    scheduledAt?.toEpochMilli() ?: 0L,
+                ),
             lookupFlag or PendingIntent.FLAG_IMMUTABLE,
         )
 

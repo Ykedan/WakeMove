@@ -82,10 +82,11 @@ class AlarmEditorTest {
     }
 
     @Test
-    fun timeIsRequiredAndSaveRequiresReadyHealth() {
+    fun structuredTimeWheelAndSaveRequireReadyHealth() {
         var state by mutableStateOf(
             AlarmEditorUiState(
-                timeText = "",
+                hour = 7,
+                minute = 30,
                 health = readyHealth,
             ),
         )
@@ -94,7 +95,9 @@ class AlarmEditorTest {
             WakeMoveTheme {
                 AlarmEditorScreen(
                     state = state,
-                    onTimeChange = { state = state.copy(timeText = it) },
+                    onTimeChange = { hour, minute ->
+                        state = state.copy(hour = hour, minute = minute)
+                    },
                     onDayToggle = {},
                     onChallengeSelected = {},
                     onTargetCountChange = {},
@@ -105,9 +108,8 @@ class AlarmEditorTest {
             }
         }
 
-        composeRule.onNodeWithText("请选择有效时间").assertIsDisplayed()
-        composeRule.onNodeWithTag("save_alarm").assertIsNotEnabled()
-        composeRule.onNodeWithTag("alarm_time").performTextReplacement("07:30")
+        composeRule.onNodeWithTag("alarm_time_wheels").assertIsDisplayed()
+        composeRule.onNodeWithTag("next_occurrence_preview").assertIsDisplayed()
         composeRule.onNodeWithTag("save_alarm").assertIsEnabled()
 
         composeRule.runOnIdle {
@@ -130,10 +132,11 @@ class AlarmEditorTest {
             WakeMoveTheme {
                 AlarmEditorScreen(
                     state = AlarmEditorUiState(
-                        timeText = "07:30",
+                        hour = 7,
+                        minute = 30,
                         health = readyHealth,
                     ),
-                    onTimeChange = {},
+                    onTimeChange = { _, _ -> },
                     onDayToggle = {},
                     onChallengeSelected = {},
                     onTargetCountChange = {},
@@ -155,7 +158,8 @@ class AlarmEditorTest {
     fun weekdaySelectionShowsVisualMarkerAndPreservesAccessibleControl() {
         var state by mutableStateOf(
             AlarmEditorUiState(
-                timeText = "07:30",
+                hour = 7,
+                minute = 30,
                 health = readyHealth,
             ),
         )
@@ -163,7 +167,7 @@ class AlarmEditorTest {
             WakeMoveTheme {
                 AlarmEditorScreen(
                     state = state,
-                    onTimeChange = {},
+                    onTimeChange = { _, _ -> },
                     onDayToggle = { day ->
                         state = state.copy(
                             selectedDays = state.selectedDays.toMutableSet().apply {
@@ -208,7 +212,8 @@ class AlarmEditorTest {
     fun targetStepperChangesCountAndStopsAtOne() {
         var state by mutableStateOf(
             AlarmEditorUiState(
-                timeText = "07:30",
+                hour = 7,
+                minute = 30,
                 targetCount = 2,
                 health = readyHealth,
             ),
@@ -217,7 +222,7 @@ class AlarmEditorTest {
             WakeMoveTheme {
                 AlarmEditorScreen(
                     state = state,
-                    onTimeChange = {},
+                    onTimeChange = { _, _ -> },
                     onDayToggle = {},
                     onChallengeSelected = { state = state.copy(challengeType = it) },
                     onTargetCountChange = { state = state.copy(targetCount = it) },
@@ -239,7 +244,8 @@ class AlarmEditorTest {
     fun voiceChallengeHidesTargetCountWithoutBlockingSaveBeforeChallengePermission() {
         var state by mutableStateOf(
             AlarmEditorUiState(
-                timeText = "07:30",
+                hour = 7,
+                minute = 30,
                 health = readyHealth,
             ),
         )
@@ -247,7 +253,7 @@ class AlarmEditorTest {
             WakeMoveTheme {
                 AlarmEditorScreen(
                     state = state,
-                    onTimeChange = {},
+                    onTimeChange = { _, _ -> },
                     onDayToggle = {},
                     onChallengeSelected = { state = state.copy(challengeType = it) },
                     onTargetCountChange = { state = state.copy(targetCount = it) },
@@ -281,10 +287,11 @@ class AlarmEditorTest {
                 AlarmEditorScreen(
                     state = AlarmEditorUiState(
                         alarmId = "alarm-1",
-                        timeText = "07:30",
+                        hour = 7,
+                        minute = 30,
                         health = readyHealth,
                     ),
-                    onTimeChange = {},
+                    onTimeChange = { _, _ -> },
                     onDayToggle = {},
                     onChallengeSelected = {},
                     onTargetCountChange = {},
@@ -528,7 +535,8 @@ class AlarmEditorTest {
 
         val created = editor.save(
             AlarmEditorUiState(
-                timeText = "07:30",
+                hour = 7,
+                minute = 30,
                 selectedDays = setOf(DayOfWeek.MONDAY),
                 challengeType = ChallengeType.SQUAT,
                 targetCount = 12,
@@ -543,7 +551,7 @@ class AlarmEditorTest {
             AlarmEditorUiState.fromAlarm(
                 created.copy(label = "晨跑"),
                 readyHealth,
-            ).copy(timeText = "08:15"),
+            ).copy(hour = 8, minute = 15),
         )
         assertEquals(LocalTime.of(8, 15), updated.time)
         assertEquals(created.createdAt, updated.createdAt)
@@ -575,7 +583,8 @@ class AlarmEditorTest {
         val result = runCatching {
             editor.save(
                 AlarmEditorUiState(
-                    timeText = "07:30",
+                    hour = 7,
+                    minute = 30,
                     selectedDays = setOf(DayOfWeek.MONDAY),
                     health = readyHealth,
                 ),
@@ -601,7 +610,8 @@ class AlarmEditorTest {
         val result = runCatching {
             editor.save(
                 AlarmEditorUiState(
-                    timeText = "07:30",
+                    hour = 7,
+                    minute = 30,
                     selectedDays = setOf(DayOfWeek.MONDAY),
                     health = readyHealth,
                 ),
@@ -628,7 +638,7 @@ class AlarmEditorTest {
         val result = runCatching {
             editor.save(
                 AlarmEditorUiState.fromAlarm(previous, readyHealth)
-                    .copy(timeText = "09:45"),
+                    .copy(hour = 9, minute = 45),
             )
         }
 
@@ -689,7 +699,8 @@ class AlarmEditorTest {
             idProvider = { "create-${++nextId}" },
         )
         val state = AlarmEditorUiState(
-            timeText = "07:30",
+            hour = 7,
+            minute = 30,
             selectedDays = setOf(DayOfWeek.MONDAY),
             health = readyHealth,
         )

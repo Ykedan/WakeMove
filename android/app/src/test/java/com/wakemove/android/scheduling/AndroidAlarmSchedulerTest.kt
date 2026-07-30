@@ -47,6 +47,10 @@ class AndroidAlarmSchedulerTest {
             .edit()
             .clear()
             .commit()
+        context.getSharedPreferences("wakemove_alarm_delivery", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
     }
 
@@ -72,13 +76,9 @@ class AndroidAlarmSchedulerTest {
             AlarmReceiver::class.java.name,
             operation.savedIntent.component?.className,
         )
-        assertEquals(
-            SchedulerHealthSnapshot(
-                lastResult = SchedulingResult.SUCCESS,
-                nextRegisteredAt = trigger,
-            ),
-            scheduler.healthSnapshot(),
-        )
+        assertEquals(SchedulingResult.SUCCESS, scheduler.healthSnapshot().lastResult)
+        assertEquals(trigger, scheduler.healthSnapshot().nextRegisteredAt)
+        assertEquals(DeliveryStage.REGISTERED, scheduler.healthSnapshot().latestDelivery?.stage)
     }
 
     @Test
@@ -162,9 +162,9 @@ class AndroidAlarmSchedulerTest {
         scheduler.rescheduleAll()
 
         val scheduled = shadowOf(alarmManager).scheduledAlarms
-        assertEquals(2, scheduled.size)
+        assertEquals(3, scheduled.size)
         assertEquals(
-            setOf(repeating.id, futureOneShot.id),
+            setOf(repeating.id, futureOneShot.id, expiredOneShot.id),
             scheduled.map {
                 shadowOf(it.operation).savedIntent.getStringExtra(AlarmReceiver.EXTRA_ALARM_ID)
             }.toSet(),
@@ -173,17 +173,15 @@ class AndroidAlarmSchedulerTest {
             setOf(
                 Instant.parse("2026-07-30T23:30:00Z").toEpochMilli(),
                 Instant.parse("2026-07-24T01:00:00Z").toEpochMilli(),
+                Instant.parse("2026-07-24T23:00:00Z").toEpochMilli(),
             ),
             scheduled.map { it.triggerAtMs }.toSet(),
         )
-        assertEquals(false, repository.alarms.single { it.id == expiredOneShot.id }.enabled)
-        assertEquals(
-            expiredOneShot.id to AlarmEventResult.MISSED,
-            repository.events.single().let { it.alarmId to it.result },
-        )
+        assertEquals(true, repository.alarms.single { it.id == expiredOneShot.id }.enabled)
+        assertTrue(repository.events.isEmpty())
 
         scheduler.rescheduleAll()
-        assertEquals(1, repository.events.size)
+        assertTrue(repository.events.isEmpty())
     }
 
     @Test
@@ -206,16 +204,12 @@ class AndroidAlarmSchedulerTest {
         scheduler(listOf(alarm)).schedule(alarm, trigger)
 
         val reconstructed = scheduler(listOf(alarm))
-        assertEquals(
-            SchedulerHealthSnapshot(SchedulingResult.SUCCESS, trigger),
-            reconstructed.healthSnapshot(),
-        )
+        assertEquals(SchedulingResult.SUCCESS, reconstructed.healthSnapshot().lastResult)
+        assertEquals(trigger, reconstructed.healthSnapshot().nextRegisteredAt)
 
         reconstructed.cancel(alarm.id)
-        assertEquals(
-            SchedulerHealthSnapshot(SchedulingResult.SUCCESS, null),
-            scheduler(listOf(alarm)).healthSnapshot(),
-        )
+        assertEquals(SchedulingResult.SUCCESS, scheduler(listOf(alarm)).healthSnapshot().lastResult)
+        assertEquals(null, scheduler(listOf(alarm)).healthSnapshot().nextRegisteredAt)
     }
 
     @Test
