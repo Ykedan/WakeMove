@@ -71,6 +71,16 @@ android {
         compose = true
     }
 
+    packaging {
+        jniLibs {
+            excludes += setOf(
+                "lib/armeabi/libjnidispatch.so",
+                "lib/mips/libjnidispatch.so",
+                "lib/mips64/libjnidispatch.so",
+            )
+        }
+    }
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
@@ -94,9 +104,6 @@ android {
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("developmentRelease")
-            ndk {
-                abiFilters += "arm64-v8a"
-            }
         }
     }
 }
