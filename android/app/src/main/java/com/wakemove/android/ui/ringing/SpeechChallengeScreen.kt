@@ -48,7 +48,7 @@ fun SpeechChallengeScreen(
         )
         if (state is SpeechChallengeState.ServiceUnavailable) {
             Text(
-                "这台手机没有可调用的语音识别服务，请改用动作挑战",
+                "离线语音识别初始化失败，可以重试或改用动作挑战",
                 color = Color(0xFFD1D5DB),
                 modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
             )
@@ -103,6 +103,7 @@ fun SpeechChallengeScreen(
 
 private fun SpeechChallengeState.phraseOrEmpty(): String = when (this) {
     SpeechChallengeState.Idle, SpeechChallengeState.Closed -> ""
+    is SpeechChallengeState.Preparing -> phrase
     is SpeechChallengeState.Listening -> phrase
     is SpeechChallengeState.Completed -> phrase
     is SpeechChallengeState.WrongPhrase -> phrase
@@ -115,13 +116,14 @@ private fun SpeechChallengeState.phraseOrEmpty(): String = when (this) {
 private fun SpeechChallengeState.statusText(): String = when (this) {
     SpeechChallengeState.Idle -> "准备麦克风"
     SpeechChallengeState.Closed -> "麦克风已关闭"
+    is SpeechChallengeState.Preparing -> "正在准备离线语音识别"
     is SpeechChallengeState.Listening -> "正在聆听，请清晰读出"
     is SpeechChallengeState.Completed -> "识别成功"
     is SpeechChallengeState.WrongPhrase -> "短句不匹配，请重试"
     is SpeechChallengeState.NetworkError -> "网络异常"
     is SpeechChallengeState.NoMatch -> "没有听清"
     is SpeechChallengeState.PermissionDenied -> "需要麦克风权限"
-    is SpeechChallengeState.ServiceUnavailable -> "语音服务不可用"
+    is SpeechChallengeState.ServiceUnavailable -> "离线语音识别初始化失败"
 }
 
 private fun SpeechChallengeState.canRetry(): Boolean = when (this) {
@@ -129,6 +131,7 @@ private fun SpeechChallengeState.canRetry(): Boolean = when (this) {
     is SpeechChallengeState.NetworkError,
     is SpeechChallengeState.NoMatch,
     is SpeechChallengeState.PermissionDenied,
+    is SpeechChallengeState.ServiceUnavailable,
     -> true
     else -> false
 }

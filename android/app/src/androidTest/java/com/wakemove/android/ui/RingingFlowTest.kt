@@ -582,7 +582,7 @@ class RingingFlowTest {
         }
 
         composeRule.onNodeWithTag("start_challenge").performClick()
-        composeRule.onNodeWithText("语音服务不可用").assertIsDisplayed()
+        composeRule.onNodeWithText("需要麦克风权限").assertIsDisplayed()
         composeRule.onNodeWithText("改用动作挑战").performClick()
         composeRule.onNodeWithTag("landmark_overlay").assertIsDisplayed()
         composeRule.runOnIdle {
@@ -638,7 +638,7 @@ class RingingFlowTest {
         composeRule.onNodeWithText("今天也要准时起床").assertIsDisplayed()
         composeRule.onNodeWithText("目标：完整说出短句").assertIsDisplayed()
         composeRule.onNodeWithText("剩余贪睡 2 次").assertIsDisplayed()
-        composeRule.onNodeWithText("语音服务不可用").assertIsDisplayed()
+        composeRule.onNodeWithText("离线语音识别初始化失败").assertIsDisplayed()
         composeRule.onNodeWithText("改用动作挑战").performClick()
         composeRule.runOnIdle { assertTrue(fallbackSelected) }
     }
@@ -756,7 +756,6 @@ class RingingFlowTest {
                         fullScreenIntent = HealthStatus.READY,
                         camera = HealthStatus.READY,
                         microphone = HealthStatus.READY,
-                        batteryOptimization = HealthStatus.ACTION_REQUIRED,
                     )
                 },
                 schedulingProvider = {
@@ -773,7 +772,7 @@ class RingingFlowTest {
         composeRule.runOnIdle { assertEquals(HealthIssue.EXACT_ALARM, repaired) }
         composeRule.onNodeWithText("最近调度：登记成功").assertIsDisplayed()
         composeRule.onNodeWithText("下次已注册：07-28 08:30").assertIsDisplayed()
-        composeRule.onNodeWithTag("repair_battery_optimization").assertIsDisplayed()
+        composeRule.onNodeWithText("离线语音识别").assertIsDisplayed()
     }
 
     @Test
@@ -854,16 +853,15 @@ class RingingFlowTest {
                         healthProvider = {
                             healthReads += 1
                             HealthSnapshot(
-                                exactAlarm = HealthStatus.READY,
-                                notifications = HealthStatus.READY,
-                                fullScreenIntent = HealthStatus.READY,
-                                camera = HealthStatus.READY,
-                                microphone = HealthStatus.READY,
-                                batteryOptimization = if (refreshed) {
+                                exactAlarm = if (refreshed) {
                                     HealthStatus.READY
                                 } else {
                                     HealthStatus.ACTION_REQUIRED
                                 },
+                                notifications = HealthStatus.READY,
+                                fullScreenIntent = HealthStatus.READY,
+                                camera = HealthStatus.READY,
+                                microphone = HealthStatus.READY,
                             )
                         },
                         schedulingProvider = {
@@ -884,7 +882,7 @@ class RingingFlowTest {
             }
         }
 
-        composeRule.onNodeWithTag("repair_battery_optimization").assertIsDisplayed()
+        composeRule.onNodeWithTag("repair_exact_alarm").assertIsDisplayed()
         composeRule.onNodeWithText("最近调度：暂无记录").assertIsDisplayed()
         composeRule.runOnIdle {
             assertEquals(1, healthReads)
@@ -894,7 +892,7 @@ class RingingFlowTest {
             lifecycleOwner.handle(Lifecycle.Event.ON_RESUME)
         }
 
-        composeRule.onNodeWithTag("repair_battery_optimization").assertDoesNotExist()
+        composeRule.onNodeWithTag("repair_exact_alarm").assertDoesNotExist()
         composeRule.onNodeWithText("最近调度：登记成功").assertIsDisplayed()
         composeRule.onNodeWithText("下次已注册：07-28 08:30").assertIsDisplayed()
         composeRule.runOnIdle {

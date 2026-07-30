@@ -57,7 +57,6 @@ enum class HealthIssue {
     CAMERA,
     MICROPHONE,
     SPEECH_RECOGNITION,
-    BATTERY_OPTIMIZATION,
 }
 
 data class NotificationPermissionUiState(
@@ -140,15 +139,6 @@ fun HealthScreen(
                     modifier = Modifier.testTag("latest_delivery_failure"),
                 )
             }
-        }
-        if (snapshot.batteryOptimization != HealthStatus.READY &&
-            (Build.MANUFACTURER.contains("xiaomi", ignoreCase = true) ||
-                Build.BRAND.contains("redmi", ignoreCase = true))
-        ) {
-            Text(
-                text = "小米/Redmi：请将 WakeMove 的省电策略设为“无限制”，并允许后台活动。",
-                modifier = Modifier.testTag("xiaomi_battery_guidance"),
-            )
         }
         healthRows(snapshot).forEach { row ->
             Card(Modifier.fillMaxWidth()) {
@@ -261,13 +251,8 @@ private fun healthRows(snapshot: HealthSnapshot) = listOf(
     HealthRow(HealthIssue.MICROPHONE, "麦克风", snapshot.microphone),
     HealthRow(
         HealthIssue.SPEECH_RECOGNITION,
-        "语音识别服务",
+        "离线语音识别",
         snapshot.speechRecognition,
-    ),
-    HealthRow(
-        HealthIssue.BATTERY_OPTIMIZATION,
-        "电池优化",
-        snapshot.batteryOptimization,
     ),
 )
 
@@ -285,7 +270,6 @@ private fun HealthIssue.tag(): String = when (this) {
     HealthIssue.CAMERA -> "camera"
     HealthIssue.MICROPHONE -> "microphone"
     HealthIssue.SPEECH_RECOGNITION -> "speech_recognition"
-    HealthIssue.BATTERY_OPTIMIZATION -> "battery_optimization"
 }
 
 private fun SchedulingResult.label(): String = when (this) {

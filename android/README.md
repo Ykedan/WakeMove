@@ -1,6 +1,6 @@
 # WakeMove Android
 
-WakeMove 是一个 Android 10（API 29）及以上可用的本地闹钟原型。闹钟响起后，需要完成深蹲、开合跳、双手举起或随机中文语音口令才能正常停止；没有普通“关闭闹钟”按钮。
+WakeMove 是一个 Android 10（API 29）及以上可用的本地闹钟原型。闹钟响起后，需要完成深蹲、开合跳、双手举起或随机中文语音口令才能正常停止；没有普通“关闭闹钟”按钮。中文语音口令由 APK 内置的 Vosk 离线模型识别，不依赖手机的系统语音服务，也不会在使用时下载模型。
 
 > 当前交付的是开发测试版本。项目开发密钥只用于本地安装，不是应用商店生产签名。
 
@@ -65,6 +65,9 @@ storeFile=D:/path/outside/repository/wakemove-development.jks
 
 缺少本地签名配置时，调试构建仍可运行；发布构建会给出明确错误并停止。不要把这个开发密钥当作商店生产密钥，也不要把密码粘贴到 issue、聊天、截图或构建日志中。
 
+当前发布 APK 只包含 `arm64-v8a` 原生库，适用于小米 17 等现代 64 位
+Android 手机。调试构建仍保留模拟器所需的 ABI。
+
 验证签名：
 
 ```powershell
@@ -77,5 +80,5 @@ storeFile=D:/path/outside/repository/wakemove-development.jks
 - 权限用途和修复方法见 [docs/permissions.md](docs/permissions.md)。
 - 模拟器证据、真机测试步骤和待填写矩阵见 [docs/device-acceptance.md](docs/device-acceptance.md)。
 - 摄像头姿态识别、锁屏响铃、重启恢复、弱光和真实麦克风识别必须在物理 Android 设备上最终验收。模拟器测试不能替代这些结果。
-- Android 无法绕过用户强制停止应用、关机或系统厂商的极端后台限制；“健康检查”页面会提示可检测的问题。
+- Android 无法绕过用户强制停止应用、关机或系统厂商的极端后台限制；“健康检查”页面会提示可检测的问题。健康检查不再展示容易误导且厂商入口不一致的“电池优化”项目。
 - WakeMove 当前**不支持 Direct Boot**：设备重启后、用户完成首次解锁前，不会从加密的 Room 数据库恢复闹钟。应用未声明 `LOCKED_BOOT_COMPLETED`，也不会把“首次解锁前恢复”误报为已支持；首次解锁后系统发送 `BOOT_COMPLETED`，应用才重新注册闹钟。

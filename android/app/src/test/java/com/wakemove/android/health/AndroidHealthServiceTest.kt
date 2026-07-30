@@ -52,8 +52,6 @@ class AndroidHealthServiceTest {
         val snapshot = AndroidHealthService(
             context = context,
             fullScreenIntentAllowed = { true },
-            batteryOptimizationIgnored = { true },
-            speechRecognitionAvailable = { true },
         ).snapshot()
 
         assertEquals(HealthStatus.READY, snapshot.exactAlarm)
@@ -63,7 +61,6 @@ class AndroidHealthServiceTest {
         assertEquals(HealthStatus.READY, snapshot.microphone)
         assertEquals(HealthStatus.READY, snapshot.speechRecognition)
         assertEquals(HealthStatus.READY, snapshot.notificationChannel)
-        assertEquals(HealthStatus.READY, snapshot.batteryOptimization)
         assertTrue(snapshot.canScheduleAlarms)
     }
 
@@ -80,8 +77,6 @@ class AndroidHealthServiceTest {
         val snapshot = AndroidHealthService(
             context = context,
             fullScreenIntentAllowed = { false },
-            batteryOptimizationIgnored = { false },
-            speechRecognitionAvailable = { false },
         ).snapshot()
 
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.exactAlarm)
@@ -89,8 +84,7 @@ class AndroidHealthServiceTest {
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.fullScreenIntent)
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.camera)
         assertEquals(HealthStatus.UNAVAILABLE, snapshot.microphone)
-        assertEquals(HealthStatus.UNAVAILABLE, snapshot.speechRecognition)
-        assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.batteryOptimization)
+        assertEquals(HealthStatus.READY, snapshot.speechRecognition)
         assertFalse(snapshot.canScheduleAlarms)
     }
 
@@ -98,10 +92,7 @@ class AndroidHealthServiceTest {
     fun `missing or disabled alarm channel is action required`() {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.deleteNotificationChannel("ringing_alarms")
-        val missing = AndroidHealthService(
-            context = context,
-            speechRecognitionAvailable = { true },
-        ).snapshot()
+        val missing = AndroidHealthService(context = context).snapshot()
         assertEquals(HealthStatus.ACTION_REQUIRED, missing.notificationChannel)
         assertFalse(missing.canScheduleAlarms)
 
@@ -112,10 +103,7 @@ class AndroidHealthServiceTest {
                 NotificationManager.IMPORTANCE_NONE,
             ),
         )
-        val disabled = AndroidHealthService(
-            context = context,
-            speechRecognitionAvailable = { true },
-        ).snapshot()
+        val disabled = AndroidHealthService(context = context).snapshot()
         assertEquals(HealthStatus.ACTION_REQUIRED, disabled.notificationChannel)
     }
 
@@ -131,10 +119,7 @@ class AndroidHealthServiceTest {
             ),
         )
 
-        val snapshot = AndroidHealthService(
-            context = context,
-            speechRecognitionAvailable = { true },
-        ).snapshot()
+        val snapshot = AndroidHealthService(context = context).snapshot()
 
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.notificationChannel)
     }
@@ -151,24 +136,18 @@ class AndroidHealthServiceTest {
             ),
         )
 
-        val snapshot = AndroidHealthService(
-            context = context,
-            speechRecognitionAvailable = { true },
-        ).snapshot()
+        val snapshot = AndroidHealthService(context = context).snapshot()
 
         assertEquals(HealthStatus.ACTION_REQUIRED, snapshot.notificationChannel)
         assertFalse(snapshot.canScheduleAlarms)
     }
 
     @Test
-    fun `recognizer absence is unavailable even with microphone permission`() {
-        val snapshot = AndroidHealthService(
-            context = context,
-            speechRecognitionAvailable = { false },
-        ).snapshot()
+    fun `bundled offline recognizer is ready with microphone permission`() {
+        val snapshot = AndroidHealthService(context = context).snapshot()
 
         assertEquals(HealthStatus.READY, snapshot.microphone)
-        assertEquals(HealthStatus.UNAVAILABLE, snapshot.speechRecognition)
+        assertEquals(HealthStatus.READY, snapshot.speechRecognition)
     }
 
     @Test

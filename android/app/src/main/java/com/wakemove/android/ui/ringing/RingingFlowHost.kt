@@ -370,7 +370,7 @@ private fun LiveSpeechChallenge(
         SpeechChallengeScreen(
             alarmTime = alarmTime,
             alarmLabel = alarmLabel,
-            state = SpeechChallengeState.ServiceUnavailable(phrase),
+            state = SpeechChallengeState.PermissionDenied(phrase),
             remainingSnoozes = remainingSnoozes,
             onRetry = {},
             onUseCameraFallback = onUseCameraFallback,
@@ -424,7 +424,6 @@ private fun HealthSnapshot.statusFor(issue: HealthIssue): HealthStatus = when (i
     HealthIssue.NOTIFICATIONS -> notifications
     HealthIssue.NOTIFICATION_CHANNEL -> notificationChannel
     HealthIssue.FULL_SCREEN_INTENT -> fullScreenIntent
-    HealthIssue.BATTERY_OPTIMIZATION -> batteryOptimization
     HealthIssue.SPEECH_RECOGNITION -> speechRecognition
 }
 

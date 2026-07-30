@@ -84,7 +84,7 @@ fun StartupPermissionPrompt(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text("WakeMove 会依次申请通知、相机和麦克风权限。")
-                Text("随后会打开精确闹钟、全屏响铃和电池限制设置；每完成一项返回即可继续。")
+                Text("随后会打开精确闹钟和全屏响铃设置；每完成一项返回即可继续。")
                 if (authorizationStarted) {
                     Text(
                         text = "请在系统页面完成当前设置，然后返回 WakeMove。",
@@ -146,9 +146,6 @@ internal fun startupSpecialIssues(snapshot: HealthSnapshot): List<HealthIssue> =
     }
     if (snapshot.fullScreenIntent == HealthStatus.ACTION_REQUIRED) {
         add(HealthIssue.FULL_SCREEN_INTENT)
-    }
-    if (snapshot.batteryOptimization == HealthStatus.ACTION_REQUIRED) {
-        add(HealthIssue.BATTERY_OPTIMIZATION)
     }
 }
 

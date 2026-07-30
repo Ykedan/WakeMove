@@ -39,6 +39,8 @@ enum class SpeechRecognitionError {
 }
 
 sealed interface SpeechRecognitionEvent {
+    data object Preparing : SpeechRecognitionEvent
+
     data class Partial(val candidates: List<String>) : SpeechRecognitionEvent
 
     data class Final(val candidates: List<String>) : SpeechRecognitionEvent
@@ -57,6 +59,8 @@ fun interface SpeechRecognitionSource : AutoCloseable {
 
 sealed interface SpeechChallengeState {
     data object Idle : SpeechChallengeState
+
+    data class Preparing(val phrase: String) : SpeechChallengeState
 
     data class Listening(
         val phrase: String,
@@ -87,7 +91,7 @@ sealed interface SpeechChallengeState {
 class SpeechChallengeController(
     private val recognitionSource: SpeechRecognitionSource,
 ) : AutoCloseable {
-    constructor(context: Context) : this(AndroidSpeechRecognitionSource(context))
+    constructor(context: Context) : this(OfflineChineseSpeechRecognitionSource(context))
 
     private val lock = Any()
     private val mutableState = MutableStateFlow<SpeechChallengeState>(SpeechChallengeState.Idle)
@@ -164,12 +168,16 @@ class SpeechChallengeController(
         synchronized(lock) {
             if (closed ||
                 generation != attemptGeneration ||
-                mutableState.value !is SpeechChallengeState.Listening
+                (mutableState.value !is SpeechChallengeState.Listening &&
+                    mutableState.value !is SpeechChallengeState.Preparing)
             ) {
                 return
             }
             val currentPhrase = requireNotNull(phrase)
             mutableState.value = when (event) {
+                SpeechRecognitionEvent.Preparing ->
+                    SpeechChallengeState.Preparing(currentPhrase)
+
                 is SpeechRecognitionEvent.Partial -> SpeechChallengeState.Listening(
                     phrase = currentPhrase,
                     partialText = event.candidates.firstOrNull().orEmpty(),

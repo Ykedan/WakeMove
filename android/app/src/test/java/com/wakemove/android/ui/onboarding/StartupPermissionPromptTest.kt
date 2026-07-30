@@ -15,14 +15,12 @@ class StartupPermissionPromptTest {
             fullScreenIntent = HealthStatus.ACTION_REQUIRED,
             camera = HealthStatus.ACTION_REQUIRED,
             microphone = HealthStatus.ACTION_REQUIRED,
-            batteryOptimization = HealthStatus.ACTION_REQUIRED,
         )
 
         assertEquals(
             listOf(
                 HealthIssue.EXACT_ALARM,
                 HealthIssue.FULL_SCREEN_INTENT,
-                HealthIssue.BATTERY_OPTIMIZATION,
             ),
             startupSpecialIssues(snapshot),
         )
@@ -36,7 +34,6 @@ class StartupPermissionPromptTest {
             fullScreenIntent = HealthStatus.UNAVAILABLE,
             camera = HealthStatus.READY,
             microphone = HealthStatus.READY,
-            batteryOptimization = HealthStatus.READY,
         )
 
         assertEquals(emptyList<HealthIssue>(), startupSpecialIssues(snapshot))

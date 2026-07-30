@@ -3,7 +3,6 @@ package com.wakemove.android.ui.health
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import android.os.Build
 import androidx.core.net.toUri
 import com.wakemove.android.ringing.RingingService
 
@@ -43,18 +42,8 @@ fun healthRepairIntent(context: Context, issue: HealthIssue): Intent {
         )
         HealthIssue.CAMERA,
         HealthIssue.MICROPHONE,
+        HealthIssue.SPEECH_RECOGNITION,
         -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
-        HealthIssue.SPEECH_RECOGNITION -> Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)
-        HealthIssue.BATTERY_OPTIMIZATION ->
-            if (Build.MANUFACTURER.contains("xiaomi", ignoreCase = true) ||
-                Build.BRAND.contains("redmi", ignoreCase = true)
-            ) {
-                Intent("miui.intent.action.POWER_HIDE_MODE_APP_LIST").apply {
-                    putExtra("package_name", context.packageName)
-                }
-            } else {
-                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-            }
     }
 }
 

@@ -94,6 +94,9 @@ android {
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("developmentRelease")
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
         }
     }
 }
@@ -163,6 +166,8 @@ dependencies {
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
     implementation(libs.mediapipe.tasks.vision)
+    implementation("net.java.dev.jna:jna:5.18.1@aar")
+    implementation("com.alphacephei:vosk-android:0.3.75@aar")
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
