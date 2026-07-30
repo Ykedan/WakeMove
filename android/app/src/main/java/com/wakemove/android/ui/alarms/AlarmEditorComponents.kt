@@ -50,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -66,7 +67,11 @@ import com.wakemove.android.domain.VibrationPattern
 import com.wakemove.android.ringing.AlarmSound
 import com.wakemove.android.ringing.AlarmSoundCatalog
 import com.wakemove.android.ui.theme.WakeMoveErrorContainer
+import com.wakemove.android.ui.theme.WakeMoveBlue
+import com.wakemove.android.ui.theme.WakeMoveDawn
+import com.wakemove.android.ui.theme.WakeMoveNight
 import com.wakemove.android.ui.theme.WakeMovePeach
+import com.wakemove.android.ui.theme.WakeMoveSky
 import com.wakemove.android.ui.theme.WakeMoveSunlight
 import com.wakemove.android.ui.theme.WakeMoveSunrise
 import com.wakemove.android.ui.theme.WakeMoveText
@@ -85,7 +90,7 @@ internal fun SunriseTimeCard(
             .clip(MaterialTheme.shapes.extraLarge)
             .background(
                 Brush.linearGradient(
-                    listOf(WakeMoveSunlight, WakeMoveSunrise),
+                    listOf(WakeMoveNight, Color(0xFF25345F)),
                 ),
             )
             .padding(20.dp),
@@ -95,12 +100,14 @@ internal fun SunriseTimeCard(
             text = "时间",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            color = WakeMoveText,
+            color = WakeMoveSky,
         )
         TimeWheelPicker(
             hour = hour,
             minute = minute,
             onTimeChange = onTimeChange,
+            selectedColor = Color.White,
+            unselectedColor = WakeMoveSky,
         )
         Text(
             text = nextOccurrenceLabel,
@@ -109,7 +116,7 @@ internal fun SunriseTimeCard(
                 .testTag("next_occurrence_preview"),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium,
-            color = WakeMoveText.copy(alpha = 0.78f),
+            color = Color.White.copy(alpha = 0.72f),
         )
     }
 }
@@ -146,14 +153,14 @@ internal fun WeekdaySelector(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(if (selected) WakeMoveSunrise else WakeMovePeach),
+                        .background(if (selected) WakeMoveBlue else WakeMovePeach),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = day.shortChineseLabel(),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = WakeMoveText,
+                        color = if (selected) Color.White else WakeMoveText,
                     )
                 }
                 if (selected) {
@@ -169,7 +176,7 @@ internal fun WeekdaySelector(
                         Icon(
                             imageVector = Icons.Rounded.Check,
                             contentDescription = null,
-                            tint = WakeMoveText,
+                            tint = WakeMoveBlue,
                         )
                     }
                 }
@@ -347,13 +354,13 @@ internal fun SoundAndVibrationCard(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .background(WakeMoveSunlight),
+                    .background(WakeMoveDawn),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Rounded.GraphicEq,
                     contentDescription = null,
-                    tint = WakeMoveText,
+                    tint = WakeMoveNight,
                 )
             }
             Column(

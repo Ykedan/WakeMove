@@ -7,11 +7,27 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AlarmOn
+import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,6 +38,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,6 +50,9 @@ import com.wakemove.android.health.HealthStatus
 import com.wakemove.android.ui.health.HealthIssue
 import com.wakemove.android.ui.health.fallbackAppSettingsIntent
 import com.wakemove.android.ui.health.healthRepairIntent
+import com.wakemove.android.ui.theme.WakeMoveBlue
+import com.wakemove.android.ui.theme.WakeMoveMist
+import com.wakemove.android.ui.theme.WakeMoveNight
 
 @Composable
 fun StartupPermissionPrompt(
@@ -73,25 +95,68 @@ fun StartupPermissionPrompt(
             if (!authorizationStarted) onFinished()
         },
         title = {
-            Text(
-                text = if (authorizationStarted) "正在完成权限设置" else "先让闹钟准时出现",
-                fontWeight = FontWeight.Bold,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(WakeMoveBlue, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.AlarmOn,
+                        contentDescription = null,
+                        tint = Color.White,
+                    )
+                }
+                Text(
+                    text = if (authorizationStarted) {
+                        "正在完成权限设置"
+                    } else {
+                        "先让闹钟准时出现"
+                    },
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("WakeMove 会依次申请通知、相机和麦克风权限。")
-                Text("随后会打开精确闹钟和全屏响铃设置；每完成一项返回即可继续。")
                 if (authorizationStarted) {
                     Text(
                         text = "请在系统页面完成当前设置，然后返回 WakeMove。",
                         fontWeight = FontWeight.SemiBold,
                     )
                 } else {
-                    Text("如果暂时不同意，可以稍后在“健康检查”中补开。")
+                    Text(
+                        text = "只需要一次设置，之后 WakeMove 才能在锁屏时准时叫醒你。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    PermissionStep(
+                        icon = Icons.Rounded.NotificationsActive,
+                        title = "通知与全屏响铃",
+                        description = "到点立即出现，不错过闹钟",
+                    )
+                    PermissionStep(
+                        icon = Icons.Rounded.CameraAlt,
+                        title = "相机",
+                        description = "只用于本机动作识别",
+                    )
+                    PermissionStep(
+                        icon = Icons.Rounded.Mic,
+                        title = "麦克风",
+                        description = "只用于本机离线语音挑战",
+                    )
+                    Text(
+                        text = "暂时不同意也可以继续，之后可在“健康检查”中补开。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         },
@@ -109,6 +174,10 @@ fun StartupPermissionPrompt(
                     }
                 },
                 enabled = !authorizationStarted,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WakeMoveBlue,
+                    contentColor = Color.White,
+                ),
             ) {
                 Text(if (authorizationStarted) "请完成系统设置" else "开始授权")
             }
@@ -120,7 +189,52 @@ fun StartupPermissionPrompt(
                 }
             }
         },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.extraLarge,
+        tonalElevation = 0.dp,
     )
+}
+
+@Composable
+private fun PermissionStep(
+    icon: ImageVector,
+    title: String,
+    description: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(WakeMoveMist, MaterialTheme.shapes.medium)
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .background(Color.White, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = WakeMoveBlue,
+            )
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = WakeMoveNight,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 internal fun missingRuntimePermissions(

@@ -7,29 +7,40 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-val WakeMoveBackground = Color(0xFFFFF8F0)
+val WakeMoveBackground = Color(0xFFF6F7FB)
 val WakeMoveSurface = Color(0xFFFFFFFF)
-val WakeMoveSunrise = Color(0xFFFF7A1A)
-val WakeMoveSunriseForeground = Color(0xFFA33A00)
-val WakeMoveSunlight = Color(0xFFFFC45C)
-val WakeMovePeach = Color(0xFFFFE8D2)
-val WakeMoveText = Color(0xFF2F261F)
-val WakeMoveMutedText = Color(0xFF75675C)
-val WakeMoveErrorContainer = Color(0xFFFFE8E6)
+val WakeMoveNight = Color(0xFF0D1324)
+val WakeMoveNightElevated = Color(0xFF182039)
+val WakeMoveBlue = Color(0xFF4056C7)
+val WakeMoveSky = Color(0xFFBCD0FF)
+val WakeMoveDawn = Color(0xFFFF7458)
+val WakeMoveDawnSoft = Color(0xFFFFE4DD)
+val WakeMoveMint = Color(0xFF55BFA4)
+val WakeMoveMist = Color(0xFFE9EDF7)
+val WakeMoveText = Color(0xFF171C2C)
+val WakeMoveMutedText = Color(0xFF687086)
+val WakeMoveErrorContainer = Color(0xFFFFE4E2)
+
+// Compatibility aliases retained while screens migrate to the new “blue-hour dawn” system.
+val WakeMoveSunrise = WakeMoveBlue
+val WakeMoveSunriseForeground = Color(0xFF3045AA)
+val WakeMoveSunlight = WakeMoveSky
+val WakeMovePeach = WakeMoveMist
 
 private val WakeMoveColors = lightColorScheme(
     primary = WakeMoveSunriseForeground,
     onPrimary = WakeMoveSurface,
     primaryContainer = WakeMovePeach,
     onPrimaryContainer = WakeMoveText,
-    secondary = WakeMoveSunlight,
-    onSecondary = WakeMoveText,
-    secondaryContainer = WakeMovePeach,
+    secondary = Color(0xFF9E3827),
+    onSecondary = WakeMoveSurface,
+    secondaryContainer = WakeMoveDawnSoft,
     onSecondaryContainer = WakeMoveText,
     background = WakeMoveBackground,
     onBackground = WakeMoveText,
@@ -43,29 +54,54 @@ private val WakeMoveColors = lightColorScheme(
 
 private val WakeMoveTypography = Typography(
     displayMedium = TextStyle(
-        fontSize = 48.sp,
+        fontFamily = FontFamily.SansSerif,
+        fontSize = 52.sp,
         lineHeight = 56.sp,
-        fontWeight = FontWeight.Bold,
+        letterSpacing = (-1.5).sp,
+        fontWeight = FontWeight.ExtraBold,
     ),
     headlineMedium = TextStyle(
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
+        fontFamily = FontFamily.SansSerif,
+        fontSize = 30.sp,
+        lineHeight = 36.sp,
+        letterSpacing = (-0.5).sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    titleLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    titleMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontSize = 17.sp,
+        lineHeight = 23.sp,
         fontWeight = FontWeight.SemiBold,
     ),
     bodyLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontSize = 16.sp,
-        lineHeight = 24.sp,
+        lineHeight = 25.sp,
     ),
     bodyMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontSize = 14.sp,
-        lineHeight = 20.sp,
+        lineHeight = 21.sp,
+    ),
+    labelLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.SemiBold,
     ),
 )
 
 private val WakeMoveShapes = Shapes(
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(26.dp),
+    extraLarge = RoundedCornerShape(32.dp),
 )
 
 @Composable

@@ -9,16 +9,24 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -48,6 +57,11 @@ import com.wakemove.android.scheduling.SchedulingResult
 import com.wakemove.android.scheduling.DeliveryStage
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import com.wakemove.android.ui.theme.WakeMoveBlue
+import com.wakemove.android.ui.theme.WakeMoveDawn
+import com.wakemove.android.ui.theme.WakeMoveMist
+import com.wakemove.android.ui.theme.WakeMoveNight
+import com.wakemove.android.ui.theme.WakeMoveSky
 
 enum class HealthIssue {
     EXACT_ALARM,
@@ -108,22 +122,83 @@ fun HealthScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("健康检查", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Text(if (snapshot.canScheduleAlarms) "闹钟基础能力正常" else "需要修复后才能可靠响铃")
-        Text("最近调度：${scheduling.lastResult.label()}")
-        Text("重启后需先完成首次解锁，才会恢复闹钟调度；首次解锁前暂不支持。")
         Text(
-            scheduling.nextRegisteredAt?.let {
-                "下次已注册：${
-                    it.atZone(zoneId)
-                        .format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))
-                }"
-            } ?: "下次已注册：暂无",
+            text = "SYSTEM CHECK",
+            style = MaterialTheme.typography.labelLarge,
+            color = WakeMoveBlue,
         )
+        Text(
+            text = "健康检查",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = WakeMoveNight),
+            shape = MaterialTheme.shapes.extraLarge,
+        ) {
+            Column(
+                modifier = Modifier.padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(
+                                if (snapshot.canScheduleAlarms) {
+                                    Color(0xFF71D8B6)
+                                } else {
+                                    WakeMoveDawn
+                                },
+                                CircleShape,
+                            ),
+                    )
+                    Text(
+                        text = if (snapshot.canScheduleAlarms) {
+                            "闹钟基础能力正常"
+                        } else {
+                            "需要修复后才能可靠响铃"
+                        },
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                }
+                Text(
+                    text = "最近调度：${scheduling.lastResult.label()}",
+                    color = WakeMoveSky,
+                )
+                Text(
+                    text = scheduling.nextRegisteredAt?.let {
+                        "下次已注册：${
+                            it.atZone(zoneId)
+                                .format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))
+                        }"
+                    } ?: "下次已注册：暂无",
+                    color = WakeMoveSky,
+                )
+            }
+        }
+        Surface(
+            color = WakeMoveMist,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            Text(
+                text = "重启后需先完成首次解锁，才会恢复闹钟调度；首次解锁前暂不支持。",
+                modifier = Modifier.padding(14.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         scheduling.latestDelivery?.let { delivery ->
             Text(
                 text = "最近投递：${delivery.stage.chineseLabel()} · ${
@@ -141,14 +216,55 @@ fun HealthScreen(
             }
         }
         healthRows(snapshot).forEach { row ->
-            Card(Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                shape = MaterialTheme.shapes.large,
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(
+                                if (row.status == HealthStatus.READY) {
+                                    Color(0xFFE0F5EE)
+                                } else {
+                                    Color(0xFFFFE4E0)
+                                },
+                                CircleShape,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = if (row.status == HealthStatus.READY) "✓" else "!",
+                            color = if (row.status == HealthStatus.READY) {
+                                Color(0xFF176B55)
+                            } else {
+                                Color(0xFF9E3827)
+                            },
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    }
                     Column(Modifier.weight(1f)) {
-                        Text(row.label, fontWeight = FontWeight.Bold)
-                        Text(row.status.label())
+                        Text(
+                            row.label,
+                            modifier = Modifier.padding(start = 12.dp),
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            row.status.label(),
+                            modifier = Modifier.padding(start = 12.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                     if (row.status != HealthStatus.READY) {
                         Button(

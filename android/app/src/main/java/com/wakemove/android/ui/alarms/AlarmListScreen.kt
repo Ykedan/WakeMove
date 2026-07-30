@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -46,7 +47,8 @@ fun AlarmListScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding(),
         contentPadding = PaddingValues(
             start = 20.dp,
             end = 20.dp,
@@ -57,6 +59,8 @@ fun AlarmListScreen(
     ) {
         item {
             MorningHeader(
+                hour = now.hour,
+                date = now.toLocalDate(),
                 onOpenSettings = {
                     if (interactionsEnabled) {
                         onOpenSettings()

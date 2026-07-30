@@ -22,6 +22,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -43,6 +44,8 @@ internal fun TimeWheelPicker(
     hour: Int,
     minute: Int,
     onTimeChange: (hour: Int, minute: Int) -> Unit,
+    selectedColor: Color = WakeMoveText,
+    unselectedColor: Color = WakeMoveMutedText,
 ) {
     Row(
         modifier = Modifier
@@ -56,6 +59,8 @@ internal fun TimeWheelPicker(
             selectedValue = hour,
             label = "小时",
             modifier = Modifier.weight(1f),
+            selectedColor = selectedColor,
+            unselectedColor = unselectedColor,
             onSelected = { onTimeChange(it, minute) },
         )
         Text(
@@ -63,13 +68,15 @@ internal fun TimeWheelPicker(
             modifier = Modifier.padding(horizontal = 4.dp),
             style = MaterialTheme.typography.displayMedium,
             fontWeight = FontWeight.Light,
-            color = WakeMoveText,
+            color = selectedColor,
         )
         NumberWheel(
             values = (0..59).toList(),
             selectedValue = minute,
             label = "分钟",
             modifier = Modifier.weight(1f),
+            selectedColor = selectedColor,
+            unselectedColor = unselectedColor,
             onSelected = { onTimeChange(hour, it) },
         )
     }
@@ -82,6 +89,8 @@ private fun NumberWheel(
     selectedValue: Int,
     label: String,
     modifier: Modifier,
+    selectedColor: Color,
+    unselectedColor: Color,
     onSelected: (Int) -> Unit,
 ) {
     val itemHeightPx = with(LocalDensity.current) { 48.dp.roundToPx() }
@@ -150,7 +159,7 @@ private fun NumberWheel(
                         MaterialTheme.typography.headlineSmall
                     },
                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                    color = if (isSelected) WakeMoveText else WakeMoveMutedText,
+                    color = if (isSelected) selectedColor else unselectedColor,
                 )
             }
         }

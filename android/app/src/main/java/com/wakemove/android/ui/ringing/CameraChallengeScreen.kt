@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +27,10 @@ import androidx.compose.ui.unit.sp
 import com.wakemove.android.challenge.CameraGuidance
 import com.wakemove.android.challenge.ChallengeProgress
 import com.wakemove.android.domain.ChallengeType
+import com.wakemove.android.ui.theme.WakeMoveDawn
+import com.wakemove.android.ui.theme.WakeMoveNight
+import com.wakemove.android.ui.theme.WakeMoveNightElevated
+import com.wakemove.android.ui.theme.WakeMoveSky
 
 @Composable
 fun CameraChallengeScreen(
@@ -41,7 +47,7 @@ fun CameraChallengeScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF111827)),
+            .background(WakeMoveNight),
     ) {
         AlarmChallengeHeader(alarmTime, alarmLabel, remainingSnoozes)
         Box(
@@ -60,7 +66,7 @@ fun CameraChallengeScreen(
             ) {
                 landmarks.forEach { (x, y) ->
                     drawCircle(
-                        color = Color(0xFFFFA94D),
+                        color = WakeMoveDawn,
                         radius = 7.dp.toPx(),
                         center = androidx.compose.ui.geometry.Offset(size.width * x, size.height * y),
                         style = Stroke(width = 3.dp.toPx()),
@@ -73,7 +79,7 @@ fun CameraChallengeScreen(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .background(Color(0xCC111827))
+                    .background(WakeMoveNight.copy(alpha = 0.88f))
                     .fillMaxWidth()
                     .padding(16.dp),
             )
@@ -85,7 +91,7 @@ fun CameraChallengeScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(challengeName(challengeType), color = Color(0xFFFDBA74))
+                Text(challengeName(challengeType), color = WakeMoveDawn)
                 Text(
                     "${progress.repetitions} / ${progress.targetCount}",
                     color = Color.White,
@@ -118,12 +124,30 @@ internal fun AlarmChallengeHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(88.dp)
-            .padding(horizontal = 20.dp),
+            .height(112.dp)
+            .background(WakeMoveNightElevated.copy(alpha = 0.72f))
+            .statusBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("正在响铃", color = Color(0xFFFDBA74))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                    7.dp,
+                ),
+            ) {
+                Box(
+                    Modifier
+                        .background(WakeMoveDawn, CircleShape)
+                        .padding(4.dp),
+                )
+                Text(
+                    "正在响铃",
+                    color = Color.White,
+                    style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     alarmTime,
@@ -133,12 +157,16 @@ internal fun AlarmChallengeHeader(
                 )
                 Text(
                     alarmLabel,
-                    color = Color(0xFFD1D5DB),
+                    color = WakeMoveSky,
                     modifier = Modifier.padding(start = 16.dp),
                 )
             }
         }
-        Text("剩余贪睡 $remainingSnoozes 次", color = Color(0xFFD1D5DB))
+        Text(
+            "剩余贪睡 $remainingSnoozes 次",
+            color = WakeMoveSky,
+            style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
+        )
     }
 }
 

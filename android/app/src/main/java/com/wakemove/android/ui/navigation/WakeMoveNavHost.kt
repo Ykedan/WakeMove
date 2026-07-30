@@ -7,7 +7,9 @@ import androidx.compose.material.icons.outlined.HealthAndSafety
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -28,6 +30,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -276,32 +279,40 @@ private fun MainShell(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp,
+            Box(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.background)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {
-                MainDestination.entries.forEach { item ->
-                    NavigationBarItem(
-                        modifier = Modifier.semantics {
-                            contentDescription = item.label
-                        },
-                        selected = destination == item,
-                        onClick = { onDestinationSelected(item) },
-                        icon = {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.label,
-                            )
-                        },
-                        label = { Text(item.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = WakeMoveMutedText,
-                            unselectedTextColor = WakeMoveMutedText,
-                            indicatorColor = WakeMovePeach,
-                        ),
-                    )
+                NavigationBar(
+                    modifier = Modifier.clip(MaterialTheme.shapes.extraLarge),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp,
+                ) {
+                    MainDestination.entries.forEach { item ->
+                        NavigationBarItem(
+                            modifier = Modifier.semantics {
+                                contentDescription = item.label
+                            },
+                            selected = destination == item,
+                            onClick = { onDestinationSelected(item) },
+                            icon = {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.label,
+                                )
+                            },
+                            label = { Text(item.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = WakeMoveMutedText,
+                                unselectedTextColor = WakeMoveMutedText,
+                                indicatorColor = WakeMovePeach,
+                            ),
+                        )
+                    }
                 }
             }
         },

@@ -440,6 +440,7 @@ class AlarmEditorTest {
                     onEditAlarm = {},
                     onEnabledChange = { _, _ -> },
                     onOpenSettings = {},
+                    nowProvider = { MONDAY_MORNING },
                 )
             }
         }

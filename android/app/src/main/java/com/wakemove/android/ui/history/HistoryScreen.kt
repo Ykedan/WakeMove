@@ -1,24 +1,35 @@
 package com.wakemove.android.ui.history
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.wakemove.android.domain.AlarmEvent
 import com.wakemove.android.domain.AlarmEventResult
 import com.wakemove.android.domain.ChallengeType
+import com.wakemove.android.ui.theme.WakeMoveDawnSoft
+import com.wakemove.android.ui.theme.WakeMoveMint
+import com.wakemove.android.ui.theme.WakeMoveMist
+import com.wakemove.android.ui.theme.WakeOrbitMark
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -29,43 +40,127 @@ fun HistoryScreen(
     modifier: Modifier = Modifier,
     zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
-    Column(modifier.fillMaxSize().padding(20.dp)) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text("历史记录", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            if (events.isNotEmpty()) {
-                TextButton(onClick = onClearHistory) { Text("清除历史") }
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "WAKE LOG",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "历史记录",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                if (events.isNotEmpty()) {
+                    TextButton(onClick = onClearHistory) { Text("清除历史") }
+                }
             }
         }
+
         if (events.isEmpty()) {
-            Text("还没有响铃记录", modifier = Modifier.padding(top = 28.dp))
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 54.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    WakeOrbitMark(size = 132.dp)
+                    Text(
+                        text = "还没有响铃记录",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        text = "完成第一次起床挑战后，这里会留下记录",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(events, key = AlarmEvent::id) { event ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(18.dp)) {
-                            Text(event.result.label(), fontWeight = FontWeight.Bold)
+            items(events, key = AlarmEvent::id) { event ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = MaterialTheme.shapes.large,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(9.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Text(
-                                "计划时间：${
-                                    event.scheduledAt.localFormat(zoneId, includeSeconds = false)
-                                }",
+                                text = event.scheduledAt.localFormat(
+                                    zoneId,
+                                    includeSeconds = false,
+                                ),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
                             )
+                            Surface(
+                                color = if (event.result == AlarmEventResult.COMPLETED) {
+                                    WakeMoveMint.copy(alpha = 0.2f)
+                                } else {
+                                    WakeMoveDawnSoft
+                                },
+                                shape = CircleShape,
+                            ) {
+                                Text(
+                                    text = event.result.label(),
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                        Text(
+                            text = "${event.challengeType.label()} · 贪睡 ${event.snoozeCount} 次",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(WakeMoveMist, MaterialTheme.shapes.medium)
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
                             Text(
                                 "实际响铃：${
                                     event.startedAt?.localFormat(zoneId, includeSeconds = true)
                                         ?: "未开始"
                                 }",
+                                style = MaterialTheme.typography.bodyMedium,
                             )
                             Text(
                                 "完成时间：${
                                     event.finishedAt?.localFormat(zoneId, includeSeconds = true)
                                         ?: "处理中"
                                 }",
-                            )
-                            Text(
-                                "${event.challengeType.label()} · 贪睡 ${event.snoozeCount} 次",
+                                style = MaterialTheme.typography.bodyMedium,
                             )
                         }
                     }
