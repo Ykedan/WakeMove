@@ -43,8 +43,8 @@ fun healthRepairIntent(context: Context, issue: HealthIssue): Intent {
         )
         HealthIssue.CAMERA,
         HealthIssue.MICROPHONE,
-        HealthIssue.SPEECH_RECOGNITION,
         -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
+        HealthIssue.SPEECH_RECOGNITION -> Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)
         HealthIssue.BATTERY_OPTIMIZATION ->
             if (Build.MANUFACTURER.contains("xiaomi", ignoreCase = true) ||
                 Build.BRAND.contains("redmi", ignoreCase = true)

@@ -3,6 +3,7 @@ package com.wakemove.android.challenge
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.RecognitionListener
@@ -433,11 +434,25 @@ internal fun mapSpeechRecognizerError(error: Int): SpeechRecognitionError = when
 
 private object SystemAndroidSpeechRecognizerPlatform : AndroidSpeechRecognizerPlatform {
     override fun isRecognitionAvailable(context: Context): Boolean =
-        SpeechRecognizer.isRecognitionAvailable(context)
+        systemSpeechRecognitionAvailable(context)
 
     override fun create(context: Context): AndroidSpeechRecognizerSession =
-        SystemAndroidSpeechRecognizerSession(SpeechRecognizer.createSpeechRecognizer(context))
+        SystemAndroidSpeechRecognizerSession(
+            if (onDeviceSpeechRecognitionAvailable(context)) {
+                SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+            } else {
+                SpeechRecognizer.createSpeechRecognizer(context)
+            },
+        )
 }
+
+internal fun systemSpeechRecognitionAvailable(context: Context): Boolean =
+    onDeviceSpeechRecognitionAvailable(context) ||
+        SpeechRecognizer.isRecognitionAvailable(context)
+
+private fun onDeviceSpeechRecognitionAvailable(context: Context): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
 
 private class SystemAndroidSpeechRecognizerSession(
     private val recognizer: SpeechRecognizer,

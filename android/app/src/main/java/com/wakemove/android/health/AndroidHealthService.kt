@@ -7,8 +7,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
-import android.speech.SpeechRecognizer
 import androidx.core.content.ContextCompat
+import com.wakemove.android.challenge.systemSpeechRecognitionAvailable
 import com.wakemove.android.ringing.RingingService
 
 enum class HealthStatus {
@@ -49,7 +49,7 @@ class AndroidHealthService(
             ?.isIgnoringBatteryOptimizations(context.packageName) == true
     },
     private val speechRecognitionAvailable: () -> Boolean = {
-        SpeechRecognizer.isRecognitionAvailable(context.applicationContext)
+        systemSpeechRecognitionAvailable(context.applicationContext)
     },
 ) {
     private val appContext = context.applicationContext
