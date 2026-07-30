@@ -42,7 +42,7 @@ class AndroidAlarmAudioPlayerTest {
         val mediaPlayer = checkNotNull(createdPlayer)
         val shadowPlayer = shadowOf(mediaPlayer)
         assertEquals(AlarmSoundState.PLAYING, audioPlayer.soundState)
-        assertEquals(R.raw.default_alarm, shadowPlayer.sourceResId)
+        assertEquals(R.raw.dawn_breeze, shadowPlayer.sourceResId)
         assertEquals(AudioAttributes.USAGE_ALARM, shadowPlayer.audioAttributes.usage)
         assertTrue(mediaPlayer.isLooping)
         assertTrue(mediaPlayer.isPlaying)
@@ -75,7 +75,7 @@ class AndroidAlarmAudioPlayerTest {
         audioPlayer.play("file:///untrusted/alarm.ogg")
 
         assertEquals(AlarmSoundState.PLAYING, audioPlayer.soundState)
-        assertEquals(R.raw.default_alarm, shadowOf(players.single()).sourceResId)
+        assertEquals(R.raw.dawn_breeze, shadowOf(players.single()).sourceResId)
     }
 
     @Test
@@ -93,7 +93,7 @@ class AndroidAlarmAudioPlayerTest {
 
         assertEquals(AlarmSoundState.PLAYING, audioPlayer.soundState)
         assertEquals(2, players.size)
-        assertEquals(R.raw.default_alarm, shadowOf(players.last()).sourceResId)
+        assertEquals(R.raw.dawn_breeze, shadowOf(players.last()).sourceResId)
     }
 
     @Test

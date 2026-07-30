@@ -57,7 +57,9 @@ class WakeMoveApplication :
             this,
             AlarmDatabase::class.java,
             DATABASE_NAME,
-        ).build()
+        )
+            .addMigrations(AlarmDatabase.MIGRATION_1_2)
+            .build()
         val repository = RoomAlarmRepository(database.alarmDao())
         alarmRepository = repository
         healthService = AndroidHealthService(this)

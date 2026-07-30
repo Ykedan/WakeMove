@@ -8,6 +8,8 @@ import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.domain.PendingAlarmSchedule
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.SessionStatus
+import com.wakemove.android.domain.VibrationIntensity
+import com.wakemove.android.domain.VibrationPattern
 import com.wakemove.android.scheduling.AlarmScheduler
 import com.wakemove.android.scheduling.PendingScheduleRecovery
 import java.time.Clock
@@ -48,6 +50,8 @@ class RingingSessionControllerTest {
         assertEquals(now, state.session?.startedAt)
         assertEquals(AlarmSoundState.PLAYING, state.soundState)
         assertEquals(alarm.snoozeLimit, state.remainingSnoozes)
+        assertEquals(alarm.vibrationPattern, vibrator.lastPattern)
+        assertEquals(alarm.vibrationIntensity, vibrator.lastIntensity)
     }
 
     @Test
@@ -364,6 +368,8 @@ class RingingSessionControllerTest {
         repeatDays = repeatDays,
         soundId = "default",
         vibrationEnabled = true,
+        vibrationPattern = VibrationPattern.DOUBLE_PULSE,
+        vibrationIntensity = VibrationIntensity.STRONG,
         snoozeMinutes = 5,
         snoozeLimit = snoozeLimit,
         challengeType = ChallengeType.SQUAT,
@@ -549,10 +555,20 @@ private class FakeAlarmVibrator(
         private set
     var stopCount = 0
         private set
+    var lastPattern: VibrationPattern? = null
+        private set
+    var lastIntensity: VibrationIntensity? = null
+        private set
 
     override fun start() {
+        start(VibrationPattern.GENTLE, VibrationIntensity.MEDIUM)
+    }
+
+    override fun start(pattern: VibrationPattern, intensity: VibrationIntensity) {
         order += "vibrate"
         startCount += 1
+        lastPattern = pattern
+        lastIntensity = intensity
     }
 
     override fun stop() {

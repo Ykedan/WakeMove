@@ -29,21 +29,28 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.wakemove.android.domain.ChallengeType
+import com.wakemove.android.domain.VibrationIntensity
+import com.wakemove.android.domain.VibrationPattern
+import com.wakemove.android.ringing.AndroidAlarmSoundPreviewPlayer
+import com.wakemove.android.ringing.AndroidAlarmVibrator
 import java.time.DayOfWeek
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmEditorScreen(
     state: AlarmEditorUiState,
+    modifier: Modifier = Modifier,
     operationState: AlarmOperationUiState = AlarmOperationUiState(),
     onTimeChange: (hour: Int, minute: Int) -> Unit,
     onDayToggle: (DayOfWeek) -> Unit,
@@ -54,9 +61,23 @@ fun AlarmEditorScreen(
     onBack: () -> Unit,
     navigationEnabled: Boolean = true,
     onLabelChange: (String) -> Unit = {},
-    modifier: Modifier = Modifier,
+    onSoundSelected: (String) -> Unit = {},
+    onVibrationEnabledChange: (Boolean) -> Unit = {},
+    onVibrationPatternSelected: (VibrationPattern) -> Unit = {},
+    onVibrationIntensitySelected: (VibrationIntensity) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val soundPreview = remember(context) { AndroidAlarmSoundPreviewPlayer(context) }
+    val vibrationPreview = remember(context) { AndroidAlarmVibrator(context) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showSoundPicker by remember { mutableStateOf(false) }
+    var previewingSoundId by remember { mutableStateOf<String?>(null) }
+    DisposableEffect(soundPreview, vibrationPreview) {
+        onDispose {
+            soundPreview.close()
+            vibrationPreview.stop()
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -151,6 +172,21 @@ fun AlarmEditorScreen(
                 )
             }
 
+            SoundAndVibrationCard(
+                soundId = state.soundId,
+                vibrationEnabled = state.vibrationEnabled,
+                vibrationPattern = state.vibrationPattern,
+                vibrationIntensity = state.vibrationIntensity,
+                onOpenSoundPicker = { showSoundPicker = true },
+                onVibrationEnabledChange = { enabled ->
+                    if (!enabled) vibrationPreview.stop()
+                    onVibrationEnabledChange(enabled)
+                },
+                onVibrationPatternSelected = onVibrationPatternSelected,
+                onVibrationIntensitySelected = onVibrationIntensitySelected,
+                onPreviewVibration = vibrationPreview::preview,
+            )
+
             EditorCard(title = "起床挑战") {
                 ChallengeSelector(
                     selectedChallenge = state.challengeType,
@@ -186,6 +222,27 @@ fun AlarmEditorScreen(
                 }
             }
         }
+    }
+
+    if (showSoundPicker) {
+        SoundSelectionDialog(
+            selectedSoundId = state.soundId,
+            previewingSoundId = previewingSoundId,
+            onSelect = onSoundSelected,
+            onPreview = { soundId ->
+                val playing = soundPreview.toggle(soundId) {
+                    if (previewingSoundId == soundId) {
+                        previewingSoundId = null
+                    }
+                }
+                previewingSoundId = soundId.takeIf { playing }
+            },
+            onDismiss = {
+                soundPreview.stop()
+                previewingSoundId = null
+                showSoundPicker = false
+            },
+        )
     }
 
     if (showDeleteConfirmation) {

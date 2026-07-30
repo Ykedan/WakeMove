@@ -17,6 +17,8 @@ import android.os.VibrationAttributes
 import android.os.Vibrator
 import android.os.VibratorManager
 import com.wakemove.android.MainActivity
+import com.wakemove.android.domain.VibrationIntensity
+import com.wakemove.android.domain.VibrationPattern
 import com.wakemove.android.scheduling.AlarmDeliveryDiagnostics
 import com.wakemove.android.scheduling.AlarmReceiver
 import com.wakemove.android.scheduling.DeliveryStage
@@ -373,10 +375,19 @@ class AndroidAlarmVibrator(
         .build()
 
     override fun start() {
-        val effect = VibrationEffect.createWaveform(
-            longArrayOf(0, VIBRATE_MILLIS, PAUSE_MILLIS),
-            REPEAT_FROM_START,
-        )
+        start(VibrationPattern.GENTLE, VibrationIntensity.MEDIUM)
+    }
+
+    override fun start(pattern: VibrationPattern, intensity: VibrationIntensity) {
+        vibrate(pattern.effect(intensity, repeating = true))
+    }
+
+    fun preview(pattern: VibrationPattern, intensity: VibrationIntensity) {
+        vibrator.cancel()
+        vibrate(pattern.effect(intensity, repeating = false))
+    }
+
+    private fun vibrate(effect: VibrationEffect) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             vibrator.vibrate(
                 effect,
@@ -392,9 +403,28 @@ class AndroidAlarmVibrator(
         vibrator.cancel()
     }
 
-    private companion object {
-        const val VIBRATE_MILLIS = 500L
-        const val PAUSE_MILLIS = 500L
-        const val REPEAT_FROM_START = 0
+    private fun VibrationPattern.effect(
+        intensity: VibrationIntensity,
+        repeating: Boolean,
+    ): VibrationEffect {
+        val amplitude = when (intensity) {
+            VibrationIntensity.LIGHT -> 80
+            VibrationIntensity.MEDIUM -> 160
+            VibrationIntensity.STRONG -> 255
+        }
+        val (timings, amplitudes) = when (this) {
+            VibrationPattern.GENTLE ->
+                longArrayOf(0, 260, 740) to intArrayOf(0, amplitude, 0)
+            VibrationPattern.DOUBLE_PULSE ->
+                longArrayOf(0, 180, 120, 180, 620) to
+                    intArrayOf(0, amplitude, 0, amplitude, 0)
+            VibrationPattern.STEADY ->
+                longArrayOf(0, 680, 320) to intArrayOf(0, amplitude, 0)
+        }
+        return VibrationEffect.createWaveform(
+            timings,
+            amplitudes,
+            if (repeating) 0 else -1,
+        )
     }
 }

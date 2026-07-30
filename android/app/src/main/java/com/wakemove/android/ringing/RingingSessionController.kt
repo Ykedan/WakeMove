@@ -8,6 +8,8 @@ import com.wakemove.android.domain.MAX_SNOOZE_COUNT
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.ScheduleCalculator
 import com.wakemove.android.domain.SessionStatus
+import com.wakemove.android.domain.VibrationIntensity
+import com.wakemove.android.domain.VibrationPattern
 import com.wakemove.android.scheduling.AlarmScheduler
 import com.wakemove.android.scheduling.AlarmDeliveryDiagnostics
 import com.wakemove.android.scheduling.DeliveryStage
@@ -24,6 +26,8 @@ import kotlinx.coroutines.sync.withLock
 
 interface AlarmVibrator {
     fun start()
+
+    fun start(pattern: VibrationPattern, intensity: VibrationIntensity) = start()
 
     fun stop()
 }
@@ -122,7 +126,9 @@ class RingingSessionController(
 
         mutableState.value = stateFor(alarm, session)
         audioPlayer.play(alarm.soundId)
-        if (alarm.vibrationEnabled) vibrator.start()
+        if (alarm.vibrationEnabled) {
+            vibrator.start(alarm.vibrationPattern, alarm.vibrationIntensity)
+        }
         mutableState.value = stateFor(alarm, session)
         if (active != null && active.alarmId != alarm.id) {
             pendingScheduleRecovery.recover(active.id)
@@ -204,7 +210,9 @@ class RingingSessionController(
         runCatching { scheduler.cancel(alarm.id) }
         mutableState.value = stateFor(alarm, ringing).copy(challengeRequested = true)
         audioPlayer.play(alarm.soundId)
-        if (alarm.vibrationEnabled) vibrator.start()
+        if (alarm.vibrationEnabled) {
+            vibrator.start(alarm.vibrationPattern, alarm.vibrationIntensity)
+        }
         mutableState.value = stateFor(alarm, ringing).copy(challengeRequested = true)
         deliveryDiagnostics?.record(
             alarmId = alarm.id,

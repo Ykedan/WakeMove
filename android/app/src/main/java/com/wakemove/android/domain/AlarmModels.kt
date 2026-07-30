@@ -13,6 +13,18 @@ enum class ChallengeType {
     VOICE_PHRASE,
 }
 
+enum class VibrationPattern {
+    GENTLE,
+    DOUBLE_PULSE,
+    STEADY,
+}
+
+enum class VibrationIntensity {
+    LIGHT,
+    MEDIUM,
+    STRONG,
+}
+
 enum class SessionStatus {
     RINGING,
     SNOOZED,
@@ -35,6 +47,8 @@ data class Alarm(
     val repeatDays: Set<DayOfWeek>,
     val soundId: String,
     val vibrationEnabled: Boolean,
+    val vibrationPattern: VibrationPattern = VibrationPattern.GENTLE,
+    val vibrationIntensity: VibrationIntensity = VibrationIntensity.MEDIUM,
     val snoozeMinutes: Int = 5,
     val snoozeLimit: Int = 3,
     val challengeType: ChallengeType,

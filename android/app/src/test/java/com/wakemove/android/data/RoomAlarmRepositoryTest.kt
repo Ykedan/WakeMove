@@ -8,6 +8,8 @@ import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.domain.PendingAlarmSchedule
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.SessionStatus
+import com.wakemove.android.domain.VibrationIntensity
+import com.wakemove.android.domain.VibrationPattern
 import com.wakemove.android.ringing.AlarmAudioPlayer
 import com.wakemove.android.ringing.AlarmSoundState
 import com.wakemove.android.ringing.AlarmVibrator
@@ -514,6 +516,8 @@ class RoomAlarmRepositoryTest {
         repeatDays = repeatDays,
         soundId = "gentle-rise",
         vibrationEnabled = true,
+        vibrationPattern = VibrationPattern.DOUBLE_PULSE,
+        vibrationIntensity = VibrationIntensity.STRONG,
         snoozeMinutes = 7,
         snoozeLimit = snoozeLimit,
         challengeType = challengeType,

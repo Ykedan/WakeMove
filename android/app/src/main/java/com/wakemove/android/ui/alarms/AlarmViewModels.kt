@@ -6,7 +6,10 @@ import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.domain.ScheduleCalculator
+import com.wakemove.android.domain.VibrationIntensity
+import com.wakemove.android.domain.VibrationPattern
 import com.wakemove.android.health.HealthSnapshot
+import com.wakemove.android.ringing.AlarmSoundCatalog
 import com.wakemove.android.scheduling.AlarmScheduler
 import java.time.DayOfWeek
 import java.time.Instant
@@ -31,6 +34,10 @@ data class AlarmEditorUiState(
     val minute: Int = 30,
     val label: String = "",
     val selectedDays: Set<DayOfWeek> = emptySet(),
+    val soundId: String = AlarmSoundCatalog.DEFAULT_ID,
+    val vibrationEnabled: Boolean = true,
+    val vibrationPattern: VibrationPattern = VibrationPattern.GENTLE,
+    val vibrationIntensity: VibrationIntensity = VibrationIntensity.MEDIUM,
     val challengeType: ChallengeType = ChallengeType.SQUAT,
     val targetCount: Int = 10,
     val health: HealthSnapshot,
@@ -55,8 +62,10 @@ data class AlarmEditorUiState(
                 label = label,
                 enabled = true,
                 repeatDays = selectedDays,
-                soundId = "default",
-                vibrationEnabled = true,
+                soundId = soundId,
+                vibrationEnabled = vibrationEnabled,
+                vibrationPattern = vibrationPattern,
+                vibrationIntensity = vibrationIntensity,
                 challengeType = challengeType,
                 targetCount = targetCount,
                 createdAt = validationInstant,
@@ -101,6 +110,10 @@ data class AlarmEditorUiState(
             minute = alarm.time.minute,
             label = alarm.label,
             selectedDays = alarm.repeatDays,
+            soundId = AlarmSoundCatalog.find(alarm.soundId).id,
+            vibrationEnabled = alarm.vibrationEnabled,
+            vibrationPattern = alarm.vibrationPattern,
+            vibrationIntensity = alarm.vibrationIntensity,
             challengeType = alarm.challengeType,
             targetCount = alarm.targetCount,
             health = health,
@@ -271,8 +284,10 @@ class AlarmEditorViewModel(
             label = state.label.trim(),
             enabled = existing?.enabled ?: true,
             repeatDays = state.selectedDays,
-            soundId = existing?.soundId ?: DEFAULT_SOUND_ID,
-            vibrationEnabled = existing?.vibrationEnabled ?: true,
+            soundId = AlarmSoundCatalog.find(state.soundId).id,
+            vibrationEnabled = state.vibrationEnabled,
+            vibrationPattern = state.vibrationPattern,
+            vibrationIntensity = state.vibrationIntensity,
             snoozeMinutes = existing?.snoozeMinutes ?: DEFAULT_SNOOZE_MINUTES,
             snoozeLimit = existing?.snoozeLimit ?: DEFAULT_SNOOZE_LIMIT,
             challengeType = state.challengeType,
@@ -304,7 +319,6 @@ class AlarmEditorViewModel(
     }
 
     companion object {
-        private const val DEFAULT_SOUND_ID = "default"
         private const val DEFAULT_SNOOZE_MINUTES = 5
         private const val DEFAULT_SNOOZE_LIMIT = 3
     }

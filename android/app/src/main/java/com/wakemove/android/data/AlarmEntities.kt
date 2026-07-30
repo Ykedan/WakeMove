@@ -19,6 +19,10 @@ data class AlarmEntity(
     val soundId: String,
     @ColumnInfo(name = "vibration_enabled")
     val vibrationEnabled: Boolean,
+    @ColumnInfo(name = "vibration_pattern", defaultValue = "'GENTLE'")
+    val vibrationPattern: String = "GENTLE",
+    @ColumnInfo(name = "vibration_intensity", defaultValue = "'MEDIUM'")
+    val vibrationIntensity: String = "MEDIUM",
     @ColumnInfo(name = "snooze_minutes")
     val snoozeMinutes: Int,
     @ColumnInfo(name = "snooze_limit")

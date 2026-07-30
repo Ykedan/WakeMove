@@ -9,6 +9,8 @@ import com.wakemove.android.domain.MAX_SNOOZE_COUNT
 import com.wakemove.android.domain.PendingAlarmSchedule
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.SessionStatus
+import com.wakemove.android.domain.VibrationIntensity
+import com.wakemove.android.domain.VibrationPattern
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalTime
@@ -137,6 +139,8 @@ private fun Alarm.toEntity() = AlarmEntity(
     repeatDays = repeatDays.toBitMask(),
     soundId = soundId,
     vibrationEnabled = vibrationEnabled,
+    vibrationPattern = vibrationPattern.name,
+    vibrationIntensity = vibrationIntensity.name,
     snoozeMinutes = snoozeMinutes,
     snoozeLimit = snoozeLimit.coerceIn(0, MAX_SNOOZE_COUNT),
     challengeType = challengeType.name,
@@ -155,6 +159,8 @@ private fun AlarmEntity.toDomain() = Alarm(
     repeatDays = repeatDays.toDaysOfWeek(),
     soundId = soundId,
     vibrationEnabled = vibrationEnabled,
+    vibrationPattern = enumValueOf<VibrationPattern>(vibrationPattern),
+    vibrationIntensity = enumValueOf<VibrationIntensity>(vibrationIntensity),
     snoozeMinutes = snoozeMinutes,
     snoozeLimit = snoozeLimit,
     challengeType = enumValueOf<ChallengeType>(challengeType),

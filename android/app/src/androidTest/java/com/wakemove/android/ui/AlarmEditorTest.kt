@@ -41,6 +41,8 @@ import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.domain.PendingAlarmSchedule
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.SessionStatus
+import com.wakemove.android.domain.VibrationIntensity
+import com.wakemove.android.domain.VibrationPattern
 import com.wakemove.android.health.HealthSnapshot
 import com.wakemove.android.health.HealthStatus
 import com.wakemove.android.scheduling.AlarmScheduler
@@ -334,6 +336,63 @@ class AlarmEditorTest {
         composeRule.runOnIdle { assertEquals("alarm-1", editedId) }
         composeRule.onNodeWithTag("alarm_enabled_alarm-1").performClick()
         composeRule.runOnIdle { assertEquals(false, enabledChange) }
+    }
+
+    @Test
+    fun soundAndVibrationModuleSelectsPerAlarmPreferences() {
+        var state by mutableStateOf(
+            AlarmEditorUiState(
+                hour = 7,
+                minute = 30,
+                health = readyHealth,
+            ),
+        )
+        composeRule.setContent {
+            WakeMoveTheme {
+                AlarmEditorScreen(
+                    state = state,
+                    onTimeChange = { _, _ -> },
+                    onDayToggle = {},
+                    onChallengeSelected = {},
+                    onTargetCountChange = {},
+                    onSoundSelected = { state = state.copy(soundId = it) },
+                    onVibrationEnabledChange = {
+                        state = state.copy(vibrationEnabled = it)
+                    },
+                    onVibrationPatternSelected = {
+                        state = state.copy(vibrationPattern = it)
+                    },
+                    onVibrationIntensitySelected = {
+                        state = state.copy(vibrationIntensity = it)
+                    },
+                    onSave = {},
+                    onDelete = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("open_sound_picker").performScrollTo().performClick()
+        composeRule.onNodeWithTag("sound_dawn_breeze").assertIsDisplayed()
+        composeRule.onNodeWithTag("sound_sunrise_chimes").assertIsDisplayed()
+        composeRule.onNodeWithTag("sound_quiet_harbor").performClick()
+        composeRule.onNodeWithText("完成").performClick()
+        composeRule.onNodeWithText("静港").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("vibration_pattern_double_pulse")
+            .performScrollTo()
+            .performClick()
+            .assertIsSelected()
+        composeRule.onNodeWithTag("vibration_intensity_strong")
+            .performScrollTo()
+            .performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("quiet_harbor", state.soundId)
+            assertEquals(VibrationPattern.DOUBLE_PULSE, state.vibrationPattern)
+            assertEquals(VibrationIntensity.STRONG, state.vibrationIntensity)
+        }
+        composeRule.onNodeWithTag("vibration_intensity_strong").assertIsSelected()
     }
 
     @Test

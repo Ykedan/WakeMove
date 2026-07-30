@@ -41,8 +41,11 @@ import com.wakemove.android.domain.AlarmEvent
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.domain.SessionStatus
+import com.wakemove.android.domain.VibrationIntensity
+import com.wakemove.android.domain.VibrationPattern
 import com.wakemove.android.health.AndroidHealthService
 import com.wakemove.android.health.HealthSnapshot
+import com.wakemove.android.ringing.AlarmSoundCatalog
 import com.wakemove.android.ringing.RingingSessionController
 import com.wakemove.android.scheduling.AlarmScheduler
 import com.wakemove.android.ui.alarms.AlarmEditorScreen
@@ -156,6 +159,18 @@ fun WakeMoveNavHost(
                             if (!add(day)) remove(day)
                         },
                     )
+                },
+                onSoundSelected = { soundId ->
+                    editorState = editorState.copy(soundId = soundId)
+                },
+                onVibrationEnabledChange = { enabled ->
+                    editorState = editorState.copy(vibrationEnabled = enabled)
+                },
+                onVibrationPatternSelected = { pattern ->
+                    editorState = editorState.copy(vibrationPattern = pattern)
+                },
+                onVibrationIntensitySelected = { intensity ->
+                    editorState = editorState.copy(vibrationIntensity = intensity)
                 },
                 onChallengeSelected = { type ->
                     editorState = editorState.copy(challengeType = type)
@@ -337,6 +352,10 @@ private fun alarmEditorStateSaver(
             state.selectedDays.joinToString(",") { it.name },
             state.challengeType.name,
             state.targetCount,
+            state.soundId,
+            state.vibrationEnabled,
+            state.vibrationPattern.name,
+            state.vibrationIntensity.name,
         )
     },
     restore = { saved ->
@@ -352,6 +371,14 @@ private fun alarmEditorStateSaver(
                 .mapTo(linkedSetOf()) { enumValueOf<DayOfWeek>(it) },
             challengeType = enumValueOf<ChallengeType>(saved[6] as String),
             targetCount = saved[7] as Int,
+            soundId = saved.getOrNull(8) as? String ?: AlarmSoundCatalog.DEFAULT_ID,
+            vibrationEnabled = saved.getOrNull(9) as? Boolean ?: true,
+            vibrationPattern = (saved.getOrNull(10) as? String)
+                ?.let { enumValueOf<VibrationPattern>(it) }
+                ?: VibrationPattern.GENTLE,
+            vibrationIntensity = (saved.getOrNull(11) as? String)
+                ?.let { enumValueOf<VibrationIntensity>(it) }
+                ?: VibrationIntensity.MEDIUM,
             health = healthProvider(),
         )
     },
