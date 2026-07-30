@@ -34,13 +34,14 @@ data class RingingUiState(
     val soundState: AlarmSoundState = AlarmSoundState.STOPPED,
     val remainingSnoozes: Int = 0,
     val recoverableError: String? = null,
+    val challengeRequested: Boolean = false,
 )
 
 class RingingSessionController(
     private val repository: AlarmRepository,
     private val audioPlayer: AlarmAudioPlayer,
     private val vibrator: AlarmVibrator,
-    scheduler: AlarmScheduler,
+    private val scheduler: AlarmScheduler,
     private val pendingScheduleRecovery: PendingScheduleRecovery =
         PendingScheduleRecovery(repository, scheduler),
     private val clock: Clock = Clock.systemUTC(),
@@ -176,6 +177,40 @@ class RingingSessionController(
             stage = DeliveryStage.SNOOZED,
             sessionId = snoozed.id,
             nextRepeatAt = trigger,
+        )
+        true
+    }
+
+    suspend fun challengeNow(): Boolean = transitionMutex.withLock {
+        val snoozed = repository.activeSession()
+            ?.takeIf { it.status == SessionStatus.SNOOZED }
+            ?: return false
+        val alarm = repository.getAlarm(snoozed.alarmId)
+            ?.takeIf(Alarm::enabled)
+            ?: return false
+        val ringing = snoozed.copy(
+            status = SessionStatus.RINGING,
+            startedAt = clock.instant(),
+            pendingScheduleAt = null,
+        )
+        if (!repository.transitionSession(
+                session = ringing,
+                expectedStatuses = setOf(SessionStatus.SNOOZED),
+            )
+        ) {
+            return false
+        }
+
+        runCatching { scheduler.cancel(alarm.id) }
+        mutableState.value = stateFor(alarm, ringing).copy(challengeRequested = true)
+        audioPlayer.play(alarm.soundId)
+        if (alarm.vibrationEnabled) vibrator.start()
+        mutableState.value = stateFor(alarm, ringing).copy(challengeRequested = true)
+        deliveryDiagnostics?.record(
+            alarmId = alarm.id,
+            scheduledAt = ringing.scheduledAt,
+            stage = DeliveryStage.RINGING,
+            sessionId = ringing.id,
         )
         true
     }

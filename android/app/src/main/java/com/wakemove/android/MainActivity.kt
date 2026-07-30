@@ -16,6 +16,7 @@ import com.wakemove.android.domain.SessionStatus
 import com.wakemove.android.ui.navigation.AlarmUiDependencies
 import com.wakemove.android.ui.navigation.WakeMoveNavHost
 import com.wakemove.android.ui.onboarding.OnboardingScreen
+import com.wakemove.android.ui.onboarding.StartupPermissionPrompt
 import com.wakemove.android.ui.theme.WakeMoveTheme
 
 class MainActivity : ComponentActivity() {
@@ -32,6 +33,11 @@ class MainActivity : ComponentActivity() {
                 var onboardingComplete by rememberSaveable {
                     mutableStateOf(preferences.getBoolean(KEY_ONBOARDING_COMPLETE, false))
                 }
+                var permissionPromptHandled by rememberSaveable {
+                    mutableStateOf(
+                        preferences.getBoolean(KEY_PERMISSION_PROMPT_HANDLED, false),
+                    )
+                }
                 val ringingState by dependencies.ringingSessionController.state.collectAsState()
                 LaunchedEffect(ringingState.session?.status) {
                     syncRingingWindow(ringingState.session?.status)
@@ -45,6 +51,20 @@ class MainActivity : ComponentActivity() {
                         healthProvider = dependencies.healthService::snapshot,
                         ringingController = dependencies.ringingSessionController,
                     )
+                    if (onboardingComplete &&
+                        !permissionPromptHandled &&
+                        ringingState.session?.status != SessionStatus.RINGING
+                    ) {
+                        StartupPermissionPrompt(
+                            healthProvider = dependencies.healthService::snapshot,
+                            onFinished = {
+                                preferences.edit {
+                                    putBoolean(KEY_PERMISSION_PROMPT_HANDLED, true)
+                                }
+                                permissionPromptHandled = true
+                            },
+                        )
+                    }
                 } else {
                     OnboardingScreen(
                         onComplete = {
@@ -88,5 +108,6 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val PREFERENCES_NAME = "wakemove_preferences"
         const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
+        const val KEY_PERMISSION_PROMPT_HANDLED = "startup_permission_prompt_handled_v1"
     }
 }

@@ -216,6 +216,11 @@ fun WakeMoveNavHost(
                     route = ROUTE_EDITOR
                 },
                 onEnabledChange = listViewModel::submitEnabledChange,
+                onChallengeNow = {
+                    coroutineScope.launch {
+                        ringingController?.challengeNow()
+                    }
+                },
                 onOpenSettings = { route = ROUTE_SETTINGS },
                 historyEvents = historyEvents,
                 healthProvider = healthProvider,
@@ -243,6 +248,7 @@ private fun MainShell(
     onCreateAlarm: () -> Unit,
     onEditAlarm: (Alarm) -> Unit,
     onEnabledChange: (Alarm, Boolean) -> Unit,
+    onChallengeNow: (com.wakemove.android.domain.RingingSession) -> Unit,
     onOpenSettings: () -> Unit,
     historyEvents: List<AlarmEvent>,
     healthProvider: () -> HealthSnapshot,
@@ -298,6 +304,7 @@ private fun MainShell(
                     onCreateAlarm = onCreateAlarm,
                     onEditAlarm = onEditAlarm,
                     onEnabledChange = onEnabledChange,
+                    onChallengeNow = onChallengeNow,
                     onOpenSettings = onOpenSettings,
                     modifier = Modifier.fillMaxSize(),
                 )

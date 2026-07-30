@@ -917,7 +917,7 @@ class RingingFlowTest {
         setContent {
             OnboardingScreen(onComplete = { completed = true })
         }
-        composeRule.onNodeWithText("继续").performClick()
+        composeRule.onNodeWithText("继续并设置权限").performClick()
         composeRule.runOnIdle { assertTrue(completed) }
     }
 

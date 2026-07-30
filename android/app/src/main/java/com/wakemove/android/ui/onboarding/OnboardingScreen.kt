@@ -26,17 +26,17 @@ fun OnboardingScreen(
             modifier = Modifier.padding(top = 12.dp),
         )
         Text(
-            "本页只是说明，不代表已经授权。只有你明确开始动作或语音挑战时，WakeMove 才会先说明用途，再请求相机或麦克风权限。",
+            "继续后，WakeMove 会集中申请通知、相机和麦克风权限，并带你完成精确闹钟与全屏响铃设置。",
             modifier = Modifier.padding(top = 28.dp),
         )
         Text(
-            "若相机和麦克风都不可用，响铃页会提供连续按住 10 秒的紧急停止。",
+            "暂时不同意也可以继续使用，之后可在“健康检查”中补开。",
             modifier = Modifier.padding(top = 16.dp),
         )
         Spacer(Modifier.weight(1f))
         Button(
             onClick = onComplete,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("继续") }
+        ) { Text("继续并设置权限") }
     }
 }

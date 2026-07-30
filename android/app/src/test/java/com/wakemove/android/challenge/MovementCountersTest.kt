@@ -104,30 +104,30 @@ class MovementCountersTest {
     }
 
     @Test
-    fun hands_up_counts_once_after_both_wrists_stay_above_the_nose_for_2000_ms() {
+    fun hands_up_counts_once_after_both_wrists_stay_near_the_shoulders_for_1000_ms() {
         val counter = HandsUpCounter()
 
-        feed(counter, handsUp(), 0L, 100L, 3)
-        assertEquals(0, counter.update(frame(1_999L, handsUp())).repetitions)
-        assertEquals(1, counter.update(frame(2_000L, handsUp())).repetitions)
-        assertEquals(1, counter.update(frame(2_100L, handsUp())).repetitions)
+        feed(counter, handsNearShoulders(), 0L, 100L, 2)
+        assertEquals(0, counter.update(frame(999L, handsNearShoulders())).repetitions)
+        assertEquals(1, counter.update(frame(1_000L, handsNearShoulders())).repetitions)
+        assertEquals(1, counter.update(frame(1_100L, handsNearShoulders())).repetitions)
     }
 
     @Test
     fun hands_up_ignores_low_visibility_jitter_and_one_raised_hand() {
         val lowVisibility = HandsUpCounter()
-        feed(lowVisibility, handsUp(visibility = 0.64f), 0L, 100L, 3)
-        assertEquals(0, lowVisibility.update(frame(2_100L, handsUp(visibility = 0.64f))).repetitions)
+        feed(lowVisibility, handsUp(visibility = 0.49f), 0L, 100L, 3)
+        assertEquals(0, lowVisibility.update(frame(1_100L, handsUp(visibility = 0.49f))).repetitions)
 
         val minimumVisibility = HandsUpCounter()
-        feed(minimumVisibility, handsUp(visibility = 0.65f), 0L, 100L, 3)
-        assertEquals(1, minimumVisibility.update(frame(2_000L, handsUp(visibility = 0.65f))).repetitions)
+        feed(minimumVisibility, handsUp(visibility = 0.50f), 0L, 100L, 2)
+        assertEquals(1, minimumVisibility.update(frame(1_000L, handsUp(visibility = 0.50f))).repetitions)
 
         val jittery = HandsUpCounter()
         jittery.update(frame(0L, handsUp()))
         jittery.update(frame(100L, handsDown()))
-        feed(jittery, handsUp(), 200L, 100L, 3)
-        assertEquals(0, jittery.update(frame(2_100L, handsUp())).repetitions)
+        feed(jittery, handsUp(), 200L, 100L, 2)
+        assertEquals(0, jittery.update(frame(1_199L, handsUp())).repetitions)
 
         val unrelated = HandsUpCounter()
         assertEquals(0, feed(unrelated, oneHandUp(), 0L, 100L, 22).repetitions)
@@ -193,6 +193,11 @@ class MovementCountersTest {
     private fun handsUp(visibility: Float = 1f) = pose(visibility) {
         set(PoseLandmark.LEFT_WRIST, 0.30f, 0.12f)
         set(PoseLandmark.RIGHT_WRIST, 0.70f, 0.12f)
+    }
+
+    private fun handsNearShoulders(visibility: Float = 1f) = pose(visibility) {
+        set(PoseLandmark.LEFT_WRIST, 0.30f, 0.37f)
+        set(PoseLandmark.RIGHT_WRIST, 0.70f, 0.37f)
     }
 
     private fun handsDown(visibility: Float = 1f) = pose(visibility) {

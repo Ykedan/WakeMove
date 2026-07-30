@@ -9,6 +9,7 @@ import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Binder
+import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.VibrationEffect
@@ -249,6 +250,11 @@ class RingingService : Service() {
             .setAutoCancel(false)
             .setContentIntent(fullScreenIntent(alarmId, sessionId))
             .setFullScreenIntent(fullScreenIntent(alarmId, sessionId), true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(
+                Notification.FOREGROUND_SERVICE_IMMEDIATE,
+            )
+        }
         startForeground(
             NOTIFICATION_ID,
             builder.build(),

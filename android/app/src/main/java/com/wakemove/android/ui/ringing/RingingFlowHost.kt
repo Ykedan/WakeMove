@@ -157,6 +157,18 @@ fun RingingFlowHost(
         }
     }
 
+    LaunchedEffect(session.id, state.challengeRequested) {
+        if (state.challengeRequested && route == RingingRoute.RINGING) {
+            startChallenge(
+                if (session.challengeType == ChallengeType.VOICE_PHRASE) {
+                    RingingRoute.SPEECH
+                } else {
+                    RingingRoute.CAMERA
+                },
+            )
+        }
+    }
+
     BackHandler(enabled = true) {
         when {
             permissionPrompt != null -> permissionPrompt = null

@@ -11,7 +11,10 @@ private const val SQUAT_BOTTOM_KNEE_ANGLE = 120.0
 private const val CLOSED_ANKLE_DISTANCE = 0.25f
 private const val OPEN_ANKLE_DISTANCE = 0.45f
 private const val OPEN_ARM_ANGLE = 110.0
-private const val HANDS_UP_HOLD_MS = 2_000L
+private const val HANDS_UP_HOLD_MS = 1_000L
+private const val HANDS_UP_STABLE_FRAME_COUNT = 2
+private const val HANDS_UP_MINIMUM_VISIBILITY = 0.50f
+private const val HANDS_UP_SHOULDER_TOLERANCE = 0.04f
 
 interface MovementCounter {
     fun update(frame: PoseFrame): ChallengeProgress
@@ -130,7 +133,7 @@ class HandsUpCounter : MovementCounter {
         val holdStartedAtMs = handsUpStartedAtMs!!
         if (
             !countedCurrentHold &&
-            stableFrames >= STABLE_FRAME_COUNT &&
+            stableFrames >= HANDS_UP_STABLE_FRAME_COUNT &&
             frame.timestampMs - holdStartedAtMs >= HANDS_UP_HOLD_MS
         ) {
             repetitions += 1
@@ -195,11 +198,28 @@ private fun PoseFrame.jackPhase(): PosePosition? {
 }
 
 private fun PoseFrame.hasHandsUp(): Boolean {
-    val nose = visible(PoseLandmark.NOSE) ?: return false
-    val leftWrist = visible(PoseLandmark.LEFT_WRIST) ?: return false
-    val rightWrist = visible(PoseLandmark.RIGHT_WRIST) ?: return false
-    return leftWrist.y < nose.y && rightWrist.y < nose.y
+    val leftWrist = visible(
+        PoseLandmark.LEFT_WRIST,
+        HANDS_UP_MINIMUM_VISIBILITY,
+    ) ?: return false
+    val rightWrist = visible(
+        PoseLandmark.RIGHT_WRIST,
+        HANDS_UP_MINIMUM_VISIBILITY,
+    ) ?: return false
+    val leftShoulder = visible(
+        PoseLandmark.LEFT_SHOULDER,
+        HANDS_UP_MINIMUM_VISIBILITY,
+    ) ?: return false
+    val rightShoulder = visible(
+        PoseLandmark.RIGHT_SHOULDER,
+        HANDS_UP_MINIMUM_VISIBILITY,
+    ) ?: return false
+    return leftWrist.y <= leftShoulder.y + HANDS_UP_SHOULDER_TOLERANCE &&
+        rightWrist.y <= rightShoulder.y + HANDS_UP_SHOULDER_TOLERANCE
 }
 
-private fun PoseFrame.visible(landmark: PoseLandmark): Landmark? =
-    landmarks[landmark]?.takeIf { it.visibility >= MINIMUM_VISIBILITY }
+private fun PoseFrame.visible(
+    landmark: PoseLandmark,
+    minimumVisibility: Float = MINIMUM_VISIBILITY,
+): Landmark? =
+    landmarks[landmark]?.takeIf { it.visibility >= minimumVisibility }

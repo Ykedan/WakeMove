@@ -8,8 +8,20 @@ import androidx.core.net.toUri
 import com.wakemove.android.ringing.RingingService
 
 fun launchHealthRepair(context: Context, issue: HealthIssue) {
+    val intent = healthRepairIntent(context, issue)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
+        .onFailure {
+            context.startActivity(
+                fallbackAppSettingsIntent(context)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+}
+
+fun healthRepairIntent(context: Context, issue: HealthIssue): Intent {
     val packageUri = "package:${context.packageName}".toUri()
-    val intent = when (issue) {
+    return when (issue) {
         HealthIssue.EXACT_ALARM -> Intent(
             ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
             packageUri,
@@ -43,15 +55,14 @@ fun launchHealthRepair(context: Context, issue: HealthIssue) {
             } else {
                 Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             }
-    }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    runCatching { context.startActivity(intent) }
-        .onFailure {
-            context.startActivity(
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
     }
 }
+
+fun fallbackAppSettingsIntent(context: Context): Intent =
+    Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        "package:${context.packageName}".toUri(),
+    )
 
 private const val ACTION_REQUEST_SCHEDULE_EXACT_ALARM =
     "android.settings.REQUEST_SCHEDULE_EXACT_ALARM"

@@ -337,6 +337,41 @@ class AlarmEditorTest {
     }
 
     @Test
+    fun snoozedAlarmCardOffersChallengeNowWithoutUnlockingEditControls() {
+        val alarm = alarm()
+        val session = RingingSession(
+            id = "session-1",
+            alarmId = alarm.id,
+            scheduledAt = Instant.parse("2026-07-30T23:30:00Z"),
+            startedAt = Instant.parse("2026-07-30T23:30:00Z"),
+            snoozeCount = 1,
+            challengeType = alarm.challengeType,
+            targetCount = alarm.targetCount,
+            status = SessionStatus.SNOOZED,
+            pendingScheduleAt = Instant.parse("2026-07-30T23:35:00Z"),
+        )
+        var challengedSession: RingingSession? = null
+        composeRule.setContent {
+            WakeMoveTheme {
+                AlarmListScreen(
+                    alarms = listOf(alarm),
+                    activeSession = session,
+                    onCreateAlarm = {},
+                    onEditAlarm = {},
+                    onEnabledChange = { _, _ -> },
+                    onOpenSettings = {},
+                    onChallengeNow = { challengedSession = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("立即挑战").performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertEquals(session, challengedSession) }
+        composeRule.onNodeWithTag("alarm_enabled_alarm-1").assertIsNotEnabled()
+    }
+
+    @Test
     fun emptyAlarmListShowsSunriseCallToAction() {
         composeRule.setContent {
             WakeMoveTheme {

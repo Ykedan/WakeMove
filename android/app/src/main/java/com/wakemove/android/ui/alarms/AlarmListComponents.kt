@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.ChallengeType
+import com.wakemove.android.domain.SessionStatus
 import com.wakemove.android.ui.theme.WakeMoveMutedText
 import com.wakemove.android.ui.theme.WakeMovePeach
 import com.wakemove.android.ui.theme.WakeMoveSunlight
@@ -339,8 +340,13 @@ internal fun SunriseAlarmCard(
     onEdit: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
     enabled: Boolean,
+    sessionStatus: SessionStatus? = null,
+    snoozedUntil: String? = null,
+    onChallengeNow: () -> Unit = {},
 ) {
     val alarmTime = alarm.time.format(TIME_FORMAT)
+    val sessionLocked = sessionStatus == SessionStatus.RINGING ||
+        sessionStatus == SessionStatus.SNOOZED
     val primaryTextColor = when {
         !enabled -> WakeMoveMutedText.copy(alpha = DISABLED_CONTENT_ALPHA)
         alarm.enabled -> MaterialTheme.colorScheme.onSurface
@@ -363,10 +369,13 @@ internal fun SunriseAlarmCard(
     }
 
     Card(
-        onClick = onEdit,
-        enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(
+                enabled = enabled && !sessionLocked,
+                onClick = onEdit,
+                role = Role.Button,
+            )
             .testTag("alarm_card_${alarm.id}"),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
@@ -400,7 +409,7 @@ internal fun SunriseAlarmCard(
                 Switch(
                     checked = alarm.enabled,
                     onCheckedChange = onEnabledChange,
-                    enabled = enabled,
+                    enabled = enabled && !sessionLocked,
                     modifier = Modifier.testTag("alarm_enabled_${alarm.id}"),
                     colors = SwitchDefaults.colors(
                         disabledCheckedThumbColor = WakeMoveMutedText,
@@ -438,6 +447,44 @@ internal fun SunriseAlarmCard(
                 fontWeight = FontWeight.Medium,
                 color = challengeTextColor,
             )
+            if (sessionLocked) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp)
+                        .testTag("alarm_locked_${alarm.id}"),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (sessionStatus == SessionStatus.SNOOZED) {
+                            "贪睡中 · ${snoozedUntil ?: "--:--"} 再响"
+                        } else {
+                            "正在响铃 · 完成挑战后可修改"
+                        },
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    if (sessionStatus == SessionStatus.SNOOZED) {
+                        Button(
+                            onClick = onChallengeNow,
+                            enabled = enabled,
+                            modifier = Modifier.testTag("challenge_now_${alarm.id}"),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 16.dp,
+                                vertical = 10.dp,
+                            ),
+                        ) {
+                            Text(
+                                text = "立即挑战",
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

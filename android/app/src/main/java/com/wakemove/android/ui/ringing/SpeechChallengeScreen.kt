@@ -46,7 +46,15 @@ fun SpeechChallengeScreen(
             color = Color(0xFFFDBA74),
             modifier = Modifier.semantics { contentDescription = "麦克风监听状态" },
         )
-        Text("进度：${state.statusText()}", color = Color(0xFFD1D5DB))
+        if (state is SpeechChallengeState.ServiceUnavailable) {
+            Text(
+                "这台手机没有可调用的语音识别服务，请改用动作挑战",
+                color = Color(0xFFD1D5DB),
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
+            )
+        } else {
+            Text("进度：${state.statusText()}", color = Color(0xFFD1D5DB))
+        }
         Text(
             phrase,
             color = Color.White,
@@ -59,7 +67,7 @@ fun SpeechChallengeScreen(
             Text("听到：${state.partialText}", color = Color(0xFFD1D5DB))
         }
         Spacer(Modifier.weight(1f))
-        if (state.isRetryableUi()) {
+        if (state.canRetry()) {
             Button(
                 onClick = onRetry,
                 modifier = Modifier
@@ -69,15 +77,26 @@ fun SpeechChallengeScreen(
                 Text("重新聆听")
             }
         }
-        OutlinedButton(
-            onClick = onUseCameraFallback,
-            enabled = state.isRetryableUi(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .height(52.dp),
-        ) {
-            Text("改用动作挑战")
+        if (state is SpeechChallengeState.ServiceUnavailable) {
+            Button(
+                onClick = onUseCameraFallback,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .height(56.dp),
+            ) {
+                Text("改用动作挑战")
+            }
+        } else {
+            OutlinedButton(
+                onClick = onUseCameraFallback,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .height(52.dp),
+            ) {
+                Text("改用动作挑战")
+            }
         }
     }
 }
@@ -105,12 +124,11 @@ private fun SpeechChallengeState.statusText(): String = when (this) {
     is SpeechChallengeState.ServiceUnavailable -> "语音服务不可用"
 }
 
-private fun SpeechChallengeState.isRetryableUi(): Boolean = when (this) {
+private fun SpeechChallengeState.canRetry(): Boolean = when (this) {
     is SpeechChallengeState.WrongPhrase,
     is SpeechChallengeState.NetworkError,
     is SpeechChallengeState.NoMatch,
     is SpeechChallengeState.PermissionDenied,
-    is SpeechChallengeState.ServiceUnavailable,
     -> true
     else -> false
 }

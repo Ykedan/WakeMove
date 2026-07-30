@@ -77,6 +77,25 @@ class RingingSessionControllerTest {
     }
 
     @Test
+    fun `challenge now cancels snooze and opens the active challenge`() = runBlocking {
+        val repository = FakeAlarmRepository(alarm)
+        val scheduler = FakeAlarmScheduler()
+        val audioPlayer = FakeAlarmAudioPlayer()
+        val vibrator = FakeAlarmVibrator()
+        val controller = controller(repository, audioPlayer, vibrator, scheduler)
+        assertTrue(controller.start(alarm.id))
+        assertTrue(controller.snooze())
+
+        assertTrue(controller.challengeNow())
+
+        assertEquals(listOf(alarm.id), scheduler.cancelled)
+        assertEquals(SessionStatus.RINGING, repository.session?.status)
+        assertEquals(null, repository.session?.pendingScheduleAt)
+        assertEquals(AlarmSoundState.PLAYING, audioPlayer.soundState)
+        assertTrue(controller.state.value.challengeRequested)
+    }
+
+    @Test
     fun `stored snooze limit above three is still capped at three`() = runBlocking {
         val alarm = alarm(snoozeLimit = 10)
         val repository = FakeAlarmRepository(alarm)
@@ -545,6 +564,7 @@ private class FakeAlarmScheduler(
     var fail: Boolean = false,
 ) : AlarmScheduler {
     val scheduled = mutableListOf<Pair<Alarm, Instant>>()
+    val cancelled = mutableListOf<String>()
     var attempts = 0
         private set
 
@@ -554,7 +574,9 @@ private class FakeAlarmScheduler(
         scheduled += alarm to at
     }
 
-    override fun cancel(alarmId: String) = error("not used")
+    override fun cancel(alarmId: String) {
+        cancelled += alarmId
+    }
 
     override suspend fun rescheduleAll() = error("not used")
 }
