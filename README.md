@@ -11,6 +11,12 @@
   <img alt="Status" src="https://img.shields.io/badge/status-beta-FF7458">
 </p>
 
+<p align="center">
+  <a href="https://wakemove-xingdong.cloudy-flame-6804.chatgpt.site">访问 WakeMove 醒动官网</a>
+  ·
+  <a href="https://github.com/Ykedan/WakeMove/releases/latest">下载正式版 APK</a>
+</p>
+
 ## 为什么做醒动
 
 普通闹钟最容易在半睡半醒时被顺手关掉。
@@ -70,6 +76,7 @@ WakeMove/
 │     ├─ ringing/                   响铃服务、音频和会话
 │     ├─ scheduling/                精确闹钟调度与恢复
 │     └─ ui/                        Compose 界面
+├─ website/                         WakeMove 产品官网
 ├─ shared/                          跨端共享内容
 └─ docs/                            设计与开发文档
 ```
