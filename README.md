@@ -120,11 +120,25 @@ cd android
 - 60 项 Android 模拟器测试
 - Android lint：0 个错误
 
+## 下载体验
+
+最新正式测试版可从
+[GitHub Releases](https://github.com/Ykedan/WakeMove/releases/latest) 下载：
+
+```text
+WakeMove-v1.2.0.apk
+```
+
+- 支持 Android 10（API 29）及以上版本
+- APK SHA-256：
+  `6A2D5081012E8EF661C0B2B3D16F5BF778632F7A9F96D9EC6DBE6A85531AF323`
+- 此版本使用 WakeMove 正式签名；如果设备装过开发签名测试版，需要先卸载旧版
+
 ## 当前状态
 
-WakeMove 目前处于公开测试阶段，尚未上架应用商店，也暂未在 GitHub Releases
-提供公开安装包。现阶段重点是继续验证不同品牌 Android 手机上的锁屏响铃、
-后台调度和权限兼容性。
+WakeMove 目前处于公开测试阶段，尚未上架应用商店。GitHub Release 提供的是
+正式签名测试包，现阶段重点是继续验证不同品牌 Android 手机上的锁屏响铃、后台调度
+和权限兼容性。
 
 欢迎通过 [Issues](https://github.com/Ykedan/WakeMove/issues) 提交复现步骤、设备型号、
 Android 版本和相关截图。
