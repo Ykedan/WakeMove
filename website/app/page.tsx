@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description:
     "WakeMove 醒动是一款 Android 动作闹钟。响铃后完成举手、深蹲或离线语音挑战，离开床铺，也离开困意。",
   alternates: {
-    canonical: "/",
+    canonical: "https://ykedan.github.io/WakeMove/",
   },
 };
 

@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 const DOWNLOAD_URL =
   "https://github.com/Ykedan/WakeMove/releases/download/v1.2.0/WakeMove-v1.2.0.apk";
 const GITHUB_URL = "https://github.com/Ykedan/WakeMove";
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 function ArrowDown() {
   return (
@@ -156,7 +157,7 @@ export function WakeMoveHome() {
           <div className="phone phone--hero" ref={phoneRef}>
             <span className="phone-speaker" aria-hidden="true" />
             <Image
-              src="/screens/home.png"
+              src={`${PUBLIC_BASE_PATH}/screens/home.png`}
               alt="WakeMove 醒动 App 闹钟首页"
               width={1080}
               height={2400}
@@ -254,7 +255,7 @@ export function WakeMoveHome() {
           <div className="phone phone--side phone--left">
             <span className="phone-speaker" aria-hidden="true" />
             <Image
-              src="/screens/onboarding.png"
+              src={`${PUBLIC_BASE_PATH}/screens/onboarding.png`}
               alt="WakeMove 醒动首次进入页面"
               width={1080}
               height={2400}
@@ -263,7 +264,7 @@ export function WakeMoveHome() {
           <div className="phone phone--center">
             <span className="phone-speaker" aria-hidden="true" />
             <Image
-              src="/screens/home.png"
+              src={`${PUBLIC_BASE_PATH}/screens/home.png`}
               alt="WakeMove 醒动闹钟列表页面"
               width={1080}
               height={2400}
@@ -272,7 +273,7 @@ export function WakeMoveHome() {
           <div className="phone phone--side phone--right">
             <span className="phone-speaker" aria-hidden="true" />
             <Image
-              src="/screens/permissions.png"
+              src={`${PUBLIC_BASE_PATH}/screens/permissions.png`}
               alt="WakeMove 醒动权限引导页面"
               width={1080}
               height={2400}

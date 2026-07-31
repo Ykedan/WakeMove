@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://wakemove-xingdong.cloudy-flame-6804.chatgpt.site">访问 WakeMove 醒动官网</a>
+  <a href="https://ykedan.github.io/WakeMove/">访问 WakeMove 醒动官网</a>
   ·
   <a href="https://github.com/Ykedan/WakeMove/releases/latest">下载正式版 APK</a>
 </p>
