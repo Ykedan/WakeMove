@@ -29,6 +29,7 @@ class AppUpdateModelsTest {
               "releaseUrl": "https://github.com/Ykedan/WakeMove/releases/tag/v1.5.0",
               "releaseNotes": "新增软件内更新。",
               "downloadUrl": "https://github.com/Ykedan/WakeMove/releases/download/v1.5.0/WakeMove-v1.5.0.apk",
+              "fallbackDownloadUrl": "https://ykedan.github.io/WakeMove/downloads/WakeMove-v1.5.0.apk",
               "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             }
             """.trimIndent(),
@@ -37,6 +38,7 @@ class AppUpdateModelsTest {
         assertEquals("1.5.0", release.versionName)
         assertEquals("新增软件内更新。", release.releaseNotes)
         assertTrue(release.downloadUrl.endsWith("WakeMove-v1.5.0.apk"))
+        assertTrue(release.fallbackDownloadUrl?.contains("ykedan.github.io") == true)
     }
 
     @Test(expected = UpdateCheckException::class)
@@ -48,6 +50,22 @@ class AppUpdateModelsTest {
               "versionName": "9.0.0",
               "releaseUrl": "https://github.com/Ykedan/WakeMove/releases/tag/v9.0.0",
               "downloadUrl": "https://example.com/WakeMove.apk",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+            """.trimIndent(),
+        )
+    }
+
+    @Test(expected = UpdateCheckException::class)
+    fun releaseParserRejectsUntrustedFallbackHost() {
+        GitHubUpdateRepository().parseRelease(
+            """
+            {
+              "versionCode": 9,
+              "versionName": "9.0.0",
+              "releaseUrl": "https://github.com/Ykedan/WakeMove/releases/tag/v9.0.0",
+              "downloadUrl": "https://github.com/Ykedan/WakeMove/releases/download/v9.0.0/WakeMove.apk",
+              "fallbackDownloadUrl": "https://example.com/WakeMove.apk",
               "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             }
             """.trimIndent(),

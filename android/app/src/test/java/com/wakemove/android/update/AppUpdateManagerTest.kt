@@ -1,6 +1,10 @@
 package com.wakemove.android.update
 
 import android.content.Context
+import android.os.Looper
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
+import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,6 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -65,8 +70,56 @@ class AppUpdateManagerTest {
         assertEquals("已忽略 WakeMove v9.0.0", manager.state.value.message)
     }
 
+    @Test
+    fun websiteMirrorIsTriedBeforeReleaseDownload() {
+        val manager = AppUpdateManager(context, scope, UpdateRepository { update })
+        val mirrored = update.copy(
+            fallbackDownloadUrl = "https://ykedan.github.io/WakeMove/downloads/WakeMove-v9.0.0.apk",
+        )
+
+        assertEquals(
+            listOf(mirrored.fallbackDownloadUrl, mirrored.downloadUrl),
+            manager.downloadCandidates(mirrored),
+        )
+    }
+
+    @Test
+    fun directDownloaderCompletesWithoutSystemDownloadManager() = runBlocking {
+        val payload = ByteArray(256 * 1024) { index -> (index % 251).toByte() }
+        val sha256 = MessageDigest.getInstance("SHA-256")
+            .digest(payload)
+            .joinToString("") { byte -> "%02x".format(byte) }
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            createContext("/WakeMove.apk") { exchange ->
+                exchange.responseHeaders.add("Content-Type", "application/vnd.android.package-archive")
+                exchange.sendResponseHeaders(200, payload.size.toLong())
+                exchange.responseBody.use { it.write(payload) }
+            }
+            start()
+        }
+        try {
+            val localUpdate = update.copy(
+                downloadUrl = "http://127.0.0.1:${server.address.port}/WakeMove.apk",
+                sha256 = sha256,
+            )
+            val manager = AppUpdateManager(context, scope, UpdateRepository { localUpdate })
+            manager.checkForUpdate(manual = true)
+            waitUntil { manager.state.value.phase == AppUpdatePhase.AVAILABLE }
+
+            manager.downloadUpdate()
+
+            waitUntil { manager.state.value.phase == AppUpdatePhase.READY_TO_INSTALL }
+            assertEquals(100, manager.state.value.progressPercent)
+            assertTrue(context.filesDir.resolve("updates/WakeMove-v9.0.0.apk").isFile)
+        } finally {
+            server.stop(0)
+            context.filesDir.resolve("updates/WakeMove-v9.0.0.apk").delete()
+        }
+    }
+
     private suspend fun waitUntil(condition: () -> Boolean) {
-        repeat(100) {
+        repeat(500) {
+            shadowOf(Looper.getMainLooper()).idle()
             if (condition()) return
             delay(10)
         }

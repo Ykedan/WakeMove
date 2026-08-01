@@ -38,6 +38,7 @@ class GitHubUpdateRepository : UpdateRepository {
         val versionName = release.optString("versionName").removePrefix("v")
         val releaseUrl = release.optString("releaseUrl")
         val downloadUrl = release.optString("downloadUrl")
+        val fallbackDownloadUrl = release.optString("fallbackDownloadUrl").ifBlank { null }
         val sha256 = release.optString("sha256").lowercase()
         if (versionCode < 1 || versionName.isBlank() || releaseUrl.isBlank() ||
             downloadUrl.isBlank() || !sha256.matches(Regex("[a-f0-9]{64}"))
@@ -46,6 +47,7 @@ class GitHubUpdateRepository : UpdateRepository {
         }
         requireTrustedGitHubUrl(releaseUrl)
         requireTrustedGitHubUrl(downloadUrl)
+        fallbackDownloadUrl?.let(::requireTrustedGitHubUrl)
         return AppUpdateInfo(
             versionCode = versionCode,
             versionName = versionName,
@@ -55,6 +57,7 @@ class GitHubUpdateRepository : UpdateRepository {
                 "可靠性与体验改进。"
             },
             sha256 = sha256,
+            fallbackDownloadUrl = fallbackDownloadUrl,
         )
     }
 
@@ -68,7 +71,7 @@ class GitHubUpdateRepository : UpdateRepository {
     private companion object {
         const val UPDATE_MANIFEST_URL = "https://ykedan.github.io/WakeMove/update.json"
         const val TIMEOUT_MILLIS = 12_000
-        val TRUSTED_HOSTS = setOf("github.com", "www.github.com")
+        val TRUSTED_HOSTS = setOf("github.com", "www.github.com", "ykedan.github.io")
     }
 }
 

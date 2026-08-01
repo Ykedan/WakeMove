@@ -5,16 +5,18 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.Settings
+import androidx.core.content.FileProvider
 import com.wakemove.android.BuildConfig
 import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +29,8 @@ class AppUpdateManager(
     private val repository: UpdateRepository = GitHubUpdateRepository(),
 ) {
     private val applicationContext = context.applicationContext
-    private val downloadManager = applicationContext.getSystemService(DownloadManager::class.java)
+    private val legacyDownloadManager =
+        applicationContext.getSystemService(DownloadManager::class.java)
     private val preferences = applicationContext.getSharedPreferences(
         PREFERENCES_NAME,
         Context.MODE_PRIVATE,
@@ -35,7 +38,7 @@ class AppUpdateManager(
     private val _state = MutableStateFlow(AppUpdateUiState())
     val state: StateFlow<AppUpdateUiState> = _state.asStateFlow()
     private val checkedThisSession = AtomicBoolean(false)
-    private var downloadObserver: Job? = null
+    private var downloadJob: Job? = null
 
     init {
         restoreDownloadIfPresent()
@@ -112,52 +115,56 @@ class AppUpdateManager(
     fun downloadUpdate() {
         val info = _state.value.info ?: return
         if (_state.value.phase == AppUpdatePhase.DOWNLOADING) return
-        runCatching {
-            val request = DownloadManager.Request(Uri.parse(info.downloadUrl))
-                .setTitle("WakeMove v${info.versionName}")
-                .setDescription("正在下载安装包")
-                .setMimeType(APK_MIME_TYPE)
-                .setNotificationVisibility(
-                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
-                )
-                .setAllowedOverMetered(true)
-                .setAllowedOverRoaming(false)
-                .setDestinationInExternalFilesDir(
-                    applicationContext,
-                    Environment.DIRECTORY_DOWNLOADS,
-                    "WakeMove-v${info.versionName}.apk",
-                )
-            val downloadId = downloadManager.enqueue(request)
-            preferences.edit()
-                .putLong(KEY_DOWNLOAD_ID, downloadId)
-                .putString(KEY_DOWNLOAD_VERSION, info.versionName)
-                .putInt(KEY_DOWNLOAD_VERSION_CODE, info.versionCode)
-                .putString(KEY_DOWNLOAD_URL, info.downloadUrl)
-                .putString(KEY_RELEASE_URL, info.releaseUrl)
-                .putString(KEY_RELEASE_NOTES, info.releaseNotes)
-                .putString(KEY_DOWNLOAD_SHA256, info.sha256)
-                .apply()
-            _state.value = AppUpdateUiState(
-                phase = AppUpdatePhase.DOWNLOADING,
-                info = info,
-                progressPercent = 0,
-                showDialog = true,
-                downloadId = downloadId,
-            )
-            observeDownload(downloadId, info)
-        }.onFailure {
-            _state.value = AppUpdateUiState(
-                phase = AppUpdatePhase.ERROR,
-                info = info,
-                showDialog = true,
-                message = "无法开始下载，请稍后重试",
-            )
+        downloadJob?.cancel()
+        savePendingDownload(info)
+        _state.value = AppUpdateUiState(
+            phase = AppUpdatePhase.DOWNLOADING,
+            info = info,
+            progressPercent = null,
+            showDialog = true,
+        )
+        downloadJob = scope.launch(Dispatchers.IO) {
+            runCatching { downloadPackage(info) }
+                .onSuccess { file ->
+                    if (!verifyDownloadedPackage(file, info.sha256)) {
+                        file.delete()
+                        withContext(Dispatchers.Main) {
+                            _state.value = AppUpdateUiState(
+                                phase = AppUpdatePhase.ERROR,
+                                info = info,
+                                showDialog = true,
+                                message = "安装包校验失败，已阻止安装，请重新下载",
+                            )
+                        }
+                        clearSavedDownload()
+                        return@onSuccess
+                    }
+                    withContext(Dispatchers.Main) {
+                        _state.value = AppUpdateUiState(
+                            phase = AppUpdatePhase.READY_TO_INSTALL,
+                            info = info,
+                            progressPercent = 100,
+                            showDialog = true,
+                        )
+                    }
+                }
+                .onFailure {
+                    updatePartFile(info).delete()
+                    withContext(Dispatchers.Main) {
+                        _state.value = AppUpdateUiState(
+                            phase = AppUpdatePhase.ERROR,
+                            info = info,
+                            showDialog = true,
+                            message = "下载没有完成，请切换网络或连接 Wi-Fi 后重试",
+                        )
+                    }
+                    clearSavedDownload()
+                }
         }
     }
 
     fun installDownloadedUpdate() {
         val current = _state.value
-        val downloadId = current.downloadId ?: return
         val info = current.info ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !applicationContext.packageManager.canRequestPackageInstalls()
@@ -174,7 +181,7 @@ class AppUpdateManager(
             applicationContext.startActivity(settingsIntent)
             return
         }
-        openSystemInstaller(downloadId, info)
+        openSystemInstaller(info)
     }
 
     fun continueInstallationIfPossible() {
@@ -183,15 +190,14 @@ class AppUpdateManager(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
             applicationContext.packageManager.canRequestPackageInstalls()
         ) {
-            val downloadId = current.downloadId ?: return
             val info = current.info ?: return
-            openSystemInstaller(downloadId, info)
+            openSystemInstaller(info)
         }
     }
 
-    private fun openSystemInstaller(downloadId: Long, info: AppUpdateInfo) {
-        val uri = downloadManager.getUriForDownloadedFile(downloadId)
-        if (uri == null) {
+    private fun openSystemInstaller(info: AppUpdateInfo) {
+        val file = updateFile(info)
+        if (!file.isFile) {
             _state.value = AppUpdateUiState(
                 phase = AppUpdatePhase.ERROR,
                 info = info,
@@ -202,6 +208,11 @@ class AppUpdateManager(
             return
         }
         runCatching {
+            val uri = FileProvider.getUriForFile(
+                applicationContext,
+                "${applicationContext.packageName}.fileprovider",
+                file,
+            )
             val intent = Intent(Intent.ACTION_VIEW)
                 .setDataAndType(uri, APK_MIME_TYPE)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -217,107 +228,86 @@ class AppUpdateManager(
         }
     }
 
-    private fun observeDownload(downloadId: Long, info: AppUpdateInfo) {
-        downloadObserver?.cancel()
-        downloadObserver = scope.launch(Dispatchers.IO) {
-            while (true) {
-                val snapshot = queryDownload(downloadId) ?: run {
-                    withContext(Dispatchers.Main) {
-                        _state.value = AppUpdateUiState(
-                            phase = AppUpdatePhase.ERROR,
-                            info = info,
-                            showDialog = true,
-                            message = "下载任务已被系统移除，请重新下载",
-                        )
-                    }
-                    clearSavedDownload()
-                    return@launch
+    private suspend fun downloadPackage(info: AppUpdateInfo): File {
+        val target = updateFile(info)
+        val part = updatePartFile(info)
+        target.parentFile?.mkdirs()
+        target.delete()
+        val candidates = downloadCandidates(info)
+        var lastError: Throwable? = null
+        for (url in candidates) {
+            part.delete()
+            try {
+                withContext(Dispatchers.Main) {
+                    _state.value = _state.value.copy(progressPercent = null)
                 }
-                when (snapshot.status) {
-                    DownloadManager.STATUS_SUCCESSFUL -> {
-                        if (!verifyDownloadedPackage(downloadId, info.sha256)) {
-                            downloadManager.remove(downloadId)
-                            withContext(Dispatchers.Main) {
-                                _state.value = AppUpdateUiState(
-                                    phase = AppUpdatePhase.ERROR,
-                                    info = info,
-                                    showDialog = true,
-                                    message = "安装包校验失败，已阻止安装，请重新下载",
-                                )
-                            }
-                            clearSavedDownload()
-                            return@launch
-                        }
-                        withContext(Dispatchers.Main) {
-                            _state.value = AppUpdateUiState(
-                                phase = AppUpdatePhase.READY_TO_INSTALL,
-                                info = info,
-                                progressPercent = 100,
-                                showDialog = true,
-                                downloadId = downloadId,
-                            )
-                        }
-                        return@launch
-                    }
-                    DownloadManager.STATUS_FAILED -> {
-                        withContext(Dispatchers.Main) {
-                            _state.value = AppUpdateUiState(
-                                phase = AppUpdatePhase.ERROR,
-                                info = info,
-                                showDialog = true,
-                                message = "下载失败，请检查网络和存储空间后重试",
-                            )
-                        }
-                        clearSavedDownload()
-                        return@launch
-                    }
-                    else -> withContext(Dispatchers.Main) {
-                        _state.value = _state.value.copy(
-                            phase = AppUpdatePhase.DOWNLOADING,
-                            progressPercent = snapshot.progressPercent,
-                            showDialog = _state.value.showDialog,
-                        )
-                    }
+                downloadUrl(url, part)
+                if (!part.renameTo(target)) {
+                    part.copyTo(target, overwrite = true)
+                    part.delete()
                 }
-                delay(DOWNLOAD_POLL_INTERVAL_MILLIS)
+                return target
+            } catch (error: Throwable) {
+                lastError = error
             }
         }
+        throw lastError ?: IllegalStateException("没有可用的更新下载地址")
     }
 
-    private fun queryDownload(downloadId: Long): DownloadSnapshot? {
-        return downloadManager.query(DownloadManager.Query().setFilterById(downloadId))
-            ?.use { cursor ->
-                if (!cursor.moveToFirst()) return null
-                val status = cursor.getInt(
-                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS),
-                )
-                val downloaded = cursor.getLong(
-                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR),
-                )
-                val total = cursor.getLong(
-                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES),
-                )
-                DownloadSnapshot(
-                    status = status,
-                    progressPercent = if (total > 0) {
-                        ((downloaded * 100) / total).toInt().coerceIn(0, 100)
-                    } else {
-                        null
-                    },
-                )
+    internal fun downloadCandidates(info: AppUpdateInfo): List<String> =
+        listOfNotNull(info.fallbackDownloadUrl, info.downloadUrl).distinct()
+
+    private suspend fun downloadUrl(url: String, destination: File) {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        try {
+            connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT_MILLIS
+            connection.readTimeout = DOWNLOAD_READ_TIMEOUT_MILLIS
+            connection.instanceFollowRedirects = true
+            connection.setRequestProperty("Accept", APK_MIME_TYPE)
+            connection.setRequestProperty("User-Agent", "WakeMove-Android-Updater")
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) error("下载服务返回 $responseCode")
+            val totalBytes = connection.contentLengthLong
+            var downloadedBytes = 0L
+            var lastProgress = -1
+            connection.inputStream.buffered().use { input ->
+                FileOutputStream(destination).buffered().use { output ->
+                    val buffer = ByteArray(DOWNLOAD_BUFFER_SIZE)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        output.write(buffer, 0, read)
+                        downloadedBytes += read
+                        val progress = if (totalBytes > 0) {
+                            ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 99)
+                        } else {
+                            null
+                        }
+                        if (progress != null && progress != lastProgress) {
+                            lastProgress = progress
+                            withContext(Dispatchers.Main) {
+                                _state.value = _state.value.copy(progressPercent = progress)
+                            }
+                        }
+                    }
+                }
             }
+            if (downloadedBytes <= 0L || (totalBytes > 0 && downloadedBytes != totalBytes)) {
+                error("安装包下载不完整")
+            }
+        } finally {
+            connection.disconnect()
+        }
     }
 
     private fun restoreDownloadIfPresent() {
-        val downloadId = preferences.getLong(KEY_DOWNLOAD_ID, -1L)
-        if (downloadId < 0) return
+        val legacyDownloadId = preferences.getLong(KEY_DOWNLOAD_ID, -1L)
+        if (legacyDownloadId >= 0) {
+            legacyDownloadManager.remove(legacyDownloadId)
+            preferences.edit().remove(KEY_DOWNLOAD_ID).apply()
+        }
         val version = preferences.getString(KEY_DOWNLOAD_VERSION, null) ?: return
         val versionCode = preferences.getInt(KEY_DOWNLOAD_VERSION_CODE, -1)
-        if (versionCode <= BuildConfig.VERSION_CODE) {
-            downloadManager.remove(downloadId)
-            clearSavedDownload()
-            return
-        }
         val info = AppUpdateInfo(
             versionCode = versionCode,
             versionName = version,
@@ -325,34 +315,43 @@ class AppUpdateManager(
             releaseUrl = preferences.getString(KEY_RELEASE_URL, null).orEmpty(),
             releaseNotes = preferences.getString(KEY_RELEASE_NOTES, null).orEmpty(),
             sha256 = preferences.getString(KEY_DOWNLOAD_SHA256, null).orEmpty(),
+            fallbackDownloadUrl = preferences.getString(KEY_FALLBACK_DOWNLOAD_URL, null),
         )
-        val snapshot = queryDownload(downloadId)
-        when (snapshot?.status) {
-            DownloadManager.STATUS_SUCCESSFUL -> {
-                _state.value = AppUpdateUiState(
-                    phase = AppUpdatePhase.DOWNLOADING,
-                    info = info,
-                    progressPercent = 100,
-                    showDialog = false,
-                    downloadId = downloadId,
-                )
-                observeDownload(downloadId, info)
-            }
-            DownloadManager.STATUS_PENDING,
-            DownloadManager.STATUS_PAUSED,
-            DownloadManager.STATUS_RUNNING,
-            -> {
-                _state.value = AppUpdateUiState(
-                    phase = AppUpdatePhase.DOWNLOADING,
-                    info = info,
-                    progressPercent = snapshot.progressPercent,
-                    showDialog = false,
-                    downloadId = downloadId,
-                )
-                observeDownload(downloadId, info)
-            }
-            else -> clearSavedDownload()
+        if (versionCode <= BuildConfig.VERSION_CODE) {
+            updateFile(info).delete()
+            updatePartFile(info).delete()
+            clearSavedDownload()
+            return
         }
+        if (updateFile(info).isFile) {
+            _state.value = AppUpdateUiState(
+                phase = AppUpdatePhase.READY_TO_INSTALL,
+                info = info,
+                progressPercent = 100,
+                showDialog = false,
+            )
+        } else {
+            updatePartFile(info).delete()
+            _state.value = AppUpdateUiState(
+                phase = AppUpdatePhase.AVAILABLE,
+                info = info,
+                showDialog = false,
+                message = "上次下载没有完成，点击后可重新下载",
+            )
+        }
+    }
+
+    private fun savePendingDownload(info: AppUpdateInfo) {
+        preferences.edit()
+            .remove(KEY_DOWNLOAD_ID)
+            .putString(KEY_DOWNLOAD_VERSION, info.versionName)
+            .putInt(KEY_DOWNLOAD_VERSION_CODE, info.versionCode)
+            .putString(KEY_DOWNLOAD_URL, info.downloadUrl)
+            .putString(KEY_FALLBACK_DOWNLOAD_URL, info.fallbackDownloadUrl)
+            .putString(KEY_RELEASE_URL, info.releaseUrl)
+            .putString(KEY_RELEASE_NOTES, info.releaseNotes)
+            .putString(KEY_DOWNLOAD_SHA256, info.sha256)
+            .apply()
     }
 
     private fun clearSavedDownload() {
@@ -361,23 +360,23 @@ class AppUpdateManager(
             .remove(KEY_DOWNLOAD_VERSION)
             .remove(KEY_DOWNLOAD_VERSION_CODE)
             .remove(KEY_DOWNLOAD_URL)
+            .remove(KEY_FALLBACK_DOWNLOAD_URL)
             .remove(KEY_RELEASE_URL)
             .remove(KEY_RELEASE_NOTES)
             .remove(KEY_DOWNLOAD_SHA256)
             .apply()
     }
 
-    private fun verifyDownloadedPackage(downloadId: Long, expectedSha256: String): Boolean {
+    private fun updateFile(info: AppUpdateInfo): File =
+        File(updateDirectory(), "WakeMove-v${info.versionName}.apk")
+
+    private fun updatePartFile(info: AppUpdateInfo): File =
+        File(updateDirectory(), "WakeMove-v${info.versionName}.apk.part")
+
+    private fun updateDirectory(): File = File(applicationContext.filesDir, "updates")
+
+    private fun verifyDownloadedPackage(file: File, expectedSha256: String): Boolean {
         if (!expectedSha256.matches(Regex("[a-fA-F0-9]{64}"))) return false
-        val localUri = downloadManager.query(DownloadManager.Query().setFilterById(downloadId))
-            ?.use { cursor ->
-                if (!cursor.moveToFirst()) return false
-                cursor.getString(
-                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI),
-                )
-            }
-            ?: return false
-        val file = Uri.parse(localUri).path?.let(::File) ?: return false
         if (!file.isFile) return false
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { input ->
@@ -392,11 +391,6 @@ class AppUpdateManager(
         return actual.equals(expectedSha256, ignoreCase = true)
     }
 
-    private data class DownloadSnapshot(
-        val status: Int,
-        val progressPercent: Int?,
-    )
-
     companion object {
         internal const val PREFERENCES_NAME = "wakemove_update_preferences"
         internal const val KEY_IGNORED_VERSION = "ignored_version"
@@ -404,10 +398,13 @@ class AppUpdateManager(
         private const val KEY_DOWNLOAD_VERSION = "download_version"
         private const val KEY_DOWNLOAD_VERSION_CODE = "download_version_code"
         private const val KEY_DOWNLOAD_URL = "download_url"
+        private const val KEY_FALLBACK_DOWNLOAD_URL = "fallback_download_url"
         private const val KEY_RELEASE_URL = "release_url"
         private const val KEY_RELEASE_NOTES = "release_notes"
         private const val KEY_DOWNLOAD_SHA256 = "download_sha256"
         private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
-        private const val DOWNLOAD_POLL_INTERVAL_MILLIS = 700L
+        private const val DOWNLOAD_CONNECT_TIMEOUT_MILLIS = 15_000
+        private const val DOWNLOAD_READ_TIMEOUT_MILLIS = 35_000
+        private const val DOWNLOAD_BUFFER_SIZE = 64 * 1024
     }
 }
