@@ -60,9 +60,12 @@ import com.wakemove.android.ui.health.launchHealthRepair
 import com.wakemove.android.ui.history.HistoryScreen
 import com.wakemove.android.ui.ringing.RingingFlowHost
 import com.wakemove.android.ui.settings.SettingsScreen
+import com.wakemove.android.ui.settings.AppUpdateDialog
 import com.wakemove.android.ui.settings.WakeMoveSettings
 import com.wakemove.android.ui.theme.WakeMoveMutedText
 import com.wakemove.android.ui.theme.WakeMovePeach
+import com.wakemove.android.update.AppUpdateManager
+import com.wakemove.android.update.AppUpdateUiState
 import java.time.DayOfWeek
 import kotlinx.coroutines.launch
 
@@ -71,6 +74,7 @@ interface AlarmUiDependencies {
     val alarmScheduler: AlarmScheduler
     val healthService: AndroidHealthService
     val ringingSessionController: RingingSessionController
+    val appUpdateManager: AppUpdateManager
 }
 
 private enum class MainDestination(
@@ -91,6 +95,7 @@ fun WakeMoveNavHost(
     ringingController: RingingSessionController? = null,
     settings: WakeMoveSettings = WakeMoveSettings(),
     onSettingsChange: (WakeMoveSettings) -> Unit = {},
+    updateManager: AppUpdateManager? = null,
 ) {
     val ringingState = ringingController?.state?.collectAsState()?.value
     if (ringingController != null &&
@@ -122,6 +127,7 @@ fun WakeMoveNavHost(
     val listOperation by listViewModel.operationState.collectAsState()
     val editorOperation by editorViewModel.operationState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val updateState = updateManager?.state?.collectAsState()?.value ?: AppUpdateUiState()
     val context = LocalContext.current
     val schedulingProvider = remember(scheduler) { { scheduler.healthSnapshot() } }
 
@@ -214,6 +220,8 @@ fun WakeMoveNavHost(
                         historyVersion += 1
                     }
                 },
+                updateState = updateState,
+                onCheckUpdate = { updateManager?.showAvailableUpdate() },
                 modifier = modifier,
             )
         }
@@ -261,6 +269,16 @@ fun WakeMoveNavHost(
                 modifier = modifier,
             )
         }
+    }
+    if (updateManager != null) {
+        AppUpdateDialog(
+            state = updateState,
+            onDismiss = updateManager::dismissDialog,
+            onDownload = updateManager::downloadUpdate,
+            onInstall = updateManager::installDownloadedUpdate,
+            onRetry = { updateManager.checkForUpdate(manual = true) },
+            onIgnoreVersion = updateManager::ignoreCurrentVersion,
+        )
     }
 }
 

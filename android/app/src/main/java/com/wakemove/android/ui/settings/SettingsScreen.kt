@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PrivacyTip
+import androidx.compose.material.icons.rounded.SystemUpdateAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,6 +54,8 @@ import androidx.compose.ui.unit.dp
 import com.wakemove.android.BuildConfig
 import com.wakemove.android.ui.theme.WakeMoveNight
 import com.wakemove.android.ui.theme.WakeMoveSky
+import com.wakemove.android.update.AppUpdatePhase
+import com.wakemove.android.update.AppUpdateUiState
 
 @Composable
 fun SettingsScreen(
@@ -61,6 +64,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenHealth: () -> Unit,
     onClearHistory: () -> Unit,
+    updateState: AppUpdateUiState = AppUpdateUiState(),
+    onCheckUpdate: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -188,6 +193,15 @@ fun SettingsScreen(
 
         SettingsSectionTitle("数据与版本")
         SettingsGroup {
+            SettingsNavigationRow(
+                icon = Icons.Rounded.SystemUpdateAlt,
+                title = "应用更新",
+                description = updateDescription(updateState),
+                value = updateValue(updateState),
+                modifier = Modifier.testTag("settings_app_update"),
+                onClick = onCheckUpdate,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SettingsNavigationRow(
                 icon = Icons.Rounded.DeleteSweep,
                 title = "清除响铃历史",
@@ -437,4 +451,27 @@ private fun ThemePreference.displayName(): String = when (this) {
 private fun LanguagePreference.displayName(): String = when (this) {
     LanguagePreference.FOLLOW_SYSTEM -> "跟随系统"
     LanguagePreference.SIMPLIFIED_CHINESE -> "简体中文"
+}
+
+private fun updateDescription(state: AppUpdateUiState): String = when (state.phase) {
+    AppUpdatePhase.AVAILABLE -> "WakeMove v${state.info?.versionName} 已经准备好"
+    AppUpdatePhase.DOWNLOADING -> state.progressPercent?.let { "正在下载，已完成 $it%" }
+        ?: "正在下载安装包"
+    AppUpdatePhase.READY_TO_INSTALL -> "安装包已下载，点击继续安装"
+    AppUpdatePhase.INSTALL_PERMISSION_REQUIRED -> "需要允许安装应用"
+    AppUpdatePhase.ERROR -> "上次检查未成功，点击重试"
+    AppUpdatePhase.UP_TO_DATE -> "当前是最新版本 v${BuildConfig.VERSION_NAME}"
+    AppUpdatePhase.CHECKING -> "正在连接版本服务"
+    AppUpdatePhase.IDLE -> state.message ?: "检查新功能和可靠性改进"
+}
+
+private fun updateValue(state: AppUpdateUiState): String = when (state.phase) {
+    AppUpdatePhase.AVAILABLE -> "可更新"
+    AppUpdatePhase.DOWNLOADING -> "${state.progressPercent ?: 0}%"
+    AppUpdatePhase.READY_TO_INSTALL -> "安装"
+    AppUpdatePhase.INSTALL_PERMISSION_REQUIRED -> "继续"
+    AppUpdatePhase.CHECKING -> "检查中"
+    AppUpdatePhase.ERROR -> "重试"
+    AppUpdatePhase.UP_TO_DATE -> "最新"
+    AppUpdatePhase.IDLE -> "检查"
 }

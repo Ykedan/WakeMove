@@ -28,6 +28,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         applyRingingWindowFlags(intent)
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra(EXTRA_SHOW_UPDATE, false)) {
+            (application as AlarmUiDependencies).appUpdateManager.checkForUpdate(manual = true)
+            intent.removeExtra(EXTRA_SHOW_UPDATE)
+        }
         setContent {
             val settingsStore = remember { WakeMovePreferences(this@MainActivity) }
             var appSettings by remember { mutableStateOf(settingsStore.load()) }
@@ -49,6 +53,11 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(ringingState.session?.status) {
                     syncRingingWindow(ringingState.session?.status)
                 }
+                LaunchedEffect(onboardingComplete, permissionPromptHandled) {
+                    if (onboardingComplete && permissionPromptHandled) {
+                        dependencies.appUpdateManager.checkForUpdate(manual = false)
+                    }
+                }
                 if (onboardingComplete ||
                     ringingState.session?.status == SessionStatus.RINGING
                 ) {
@@ -62,6 +71,7 @@ class MainActivity : ComponentActivity() {
                             settingsStore.save(updated)
                             appSettings = updated
                         },
+                        updateManager = dependencies.appUpdateManager,
                     )
                     if (onboardingComplete &&
                         !permissionPromptHandled &&
@@ -95,6 +105,17 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         applyRingingWindowFlags(intent)
+        if (intent.getBooleanExtra(EXTRA_SHOW_UPDATE, false)) {
+            (application as AlarmUiDependencies).appUpdateManager.checkForUpdate(manual = true)
+            intent.removeExtra(EXTRA_SHOW_UPDATE)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (application as? AlarmUiDependencies)
+            ?.appUpdateManager
+            ?.continueInstallationIfPossible()
     }
 
     private fun applyRingingWindowFlags(intent: Intent) {
@@ -117,7 +138,8 @@ class MainActivity : ComponentActivity() {
         observedRingingSession = false
     }
 
-    private companion object {
+    companion object {
+        const val EXTRA_SHOW_UPDATE = "com.wakemove.android.extra.SHOW_UPDATE"
         const val PREFERENCES_NAME = "wakemove_preferences"
         const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
         const val KEY_PERMISSION_PROMPT_HANDLED = "startup_permission_prompt_handled_v1"

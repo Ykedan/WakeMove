@@ -11,6 +11,7 @@ ksp = "2.3.10"
 robolectric = "4.16.1"
 cameraX = "1.5.3"
 mediaPipeTasksVision = "0.10.35"
+workManager = "2.11.2"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
@@ -37,6 +38,7 @@ camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "ca
 camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "cameraX" }
 camerax-view = { module = "androidx.camera:camera-view", version.ref = "cameraX" }
 mediapipe-tasks-vision = { module = "com.google.mediapipe:tasks-vision", version.ref = "mediaPipeTasksVision" }
+androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "workManager" }
 junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "versionCode": 5,
+  "versionName": "1.4.0",
+  "minimumVersionCode": 4,
+  "releaseUrl": "https://github.com/Ykedan/WakeMove/releases/tag/v1.4.0",
+  "downloadUrl": "https://github.com/Ykedan/WakeMove/releases/download/v1.4.0/WakeMove-v1.4.0.apk",
+  "sha256": "07e2bcad2f5a9ff430f17ccffe80079738c4fbef07592925b4bc729fa5c1f9fd",
+  "releaseNotes": "新增软件内检查更新、下载进度和系统安装引导。\n每天自动检查一次，新版本可通过系统通知提醒。\n安装前校验 APK 的 SHA-256，降低安装包被替换的风险。"
+}
