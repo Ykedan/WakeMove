@@ -43,7 +43,7 @@ junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version = "9.2.0" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version = "2.3.21" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version = "2.4.10" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version = "2.3.21" }
 kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version = "2.3.21" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
