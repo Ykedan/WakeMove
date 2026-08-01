@@ -143,7 +143,7 @@ export function WakeMoveHome() {
               <span aria-hidden="true">↘</span>
             </a>
           </div>
-          <p className="download-note">适用于 Android 10 及以上 · 安装包约 194 MB</p>
+          <p className="download-note">适用于 Android 10 及以上 · 安装包约 196 MB</p>
         </div>
 
         <div

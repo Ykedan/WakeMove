@@ -130,7 +130,7 @@ cd android
 当前版本已通过：
 
 - 166 项 JVM 测试
-- 63 项 Android 模拟器测试
+- 64 项 Android 模拟器测试
 - Android lint：0 个错误
 
 ## 下载体验
@@ -139,12 +139,12 @@ cd android
 [GitHub Releases](https://github.com/Ykedan/WakeMove/releases/latest) 下载：
 
 ```text
-WakeMove-v1.4.0.apk
+WakeMove-v1.5.0.apk
 ```
 
 - 支持 Android 10（API 29）及以上版本
 - APK SHA-256：
-  `07E2BCAD2F5A9FF430F17CCFFE80079738C4FBEF07592925B4BC729FA5C1F9FD`
+  `57B4DB99805A1E01CA34A5C49224FBAF5F40075E2FB23D50369C1E4630A49921`
 - 此版本使用 WakeMove 正式签名；如果设备装过开发签名测试版，需要先卸载旧版
 
 ## 当前状态
