@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.wakemove.android.ringing.RingingService
@@ -17,6 +18,7 @@ import com.wakemove.android.ui.navigation.AlarmUiDependencies
 import com.wakemove.android.ui.navigation.WakeMoveNavHost
 import com.wakemove.android.ui.onboarding.OnboardingScreen
 import com.wakemove.android.ui.onboarding.StartupPermissionPrompt
+import com.wakemove.android.ui.settings.WakeMovePreferences
 import com.wakemove.android.ui.theme.WakeMoveTheme
 
 class MainActivity : ComponentActivity() {
@@ -27,7 +29,12 @@ class MainActivity : ComponentActivity() {
         applyRingingWindowFlags(intent)
         super.onCreate(savedInstanceState)
         setContent {
-            WakeMoveTheme {
+            val settingsStore = remember { WakeMovePreferences(this@MainActivity) }
+            var appSettings by remember { mutableStateOf(settingsStore.load()) }
+            WakeMoveTheme(
+                themePreference = appSettings.theme,
+                useDynamicColor = appSettings.useDynamicColor,
+            ) {
                 val dependencies = application as AlarmUiDependencies
                 val preferences = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
                 var onboardingComplete by rememberSaveable {
@@ -50,6 +57,11 @@ class MainActivity : ComponentActivity() {
                         scheduler = dependencies.alarmScheduler,
                         healthProvider = dependencies.healthService::snapshot,
                         ringingController = dependencies.ringingSessionController,
+                        settings = appSettings,
+                        onSettingsChange = { updated ->
+                            settingsStore.save(updated)
+                            appSettings = updated
+                        },
                     )
                     if (onboardingComplete &&
                         !permissionPromptHandled &&

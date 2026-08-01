@@ -25,6 +25,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,6 +48,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -84,6 +88,7 @@ fun HealthScreen(
     healthProvider: () -> HealthSnapshot,
     schedulingProvider: () -> SchedulerHealthSnapshot,
     onRepair: (HealthIssue) -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     zoneId: ZoneId = ZoneId.systemDefault(),
     notificationPermissionState: (() -> NotificationPermissionUiState)? = null,
@@ -128,16 +133,39 @@ fun HealthScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = "SYSTEM CHECK",
-            style = MaterialTheme.typography.labelLarge,
-            color = WakeMoveBlue,
-        )
-        Text(
-            text = "健康检查",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (onBack != null) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "返回设置",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+            Column {
+                Text(
+                    text = "SYSTEM CHECK",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = WakeMoveBlue,
+                )
+                Text(
+                    text = "健康检查",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+        }
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = WakeMoveNight),

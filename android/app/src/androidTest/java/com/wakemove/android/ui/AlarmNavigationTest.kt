@@ -54,7 +54,17 @@ class AlarmNavigationTest {
         setNavContent(FakeAlarmRepository(), FakeAlarmScheduler())
         composeRule.onNodeWithContentDescription("闹钟").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("历史").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("健康检查").assertIsDisplayed()
+    }
+
+    @Test
+    fun healthCheckIsOpenedFromSettings() {
+        setNavContent(FakeAlarmRepository(), FakeAlarmScheduler())
+
+        composeRule.onNodeWithContentDescription("设置").performClick()
+        composeRule.onNodeWithTag("settings_health_check").performClick()
+        composeRule.onNodeWithText("健康检查").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("返回设置").performClick()
+        composeRule.onNodeWithText("设置").assertIsDisplayed()
     }
 
     @Test

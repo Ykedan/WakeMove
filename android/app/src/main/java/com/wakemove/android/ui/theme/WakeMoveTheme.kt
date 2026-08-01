@@ -4,14 +4,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.os.Build
+import com.wakemove.android.ui.settings.ThemePreference
 
 val WakeMoveBackground = Color(0xFFF6F7FB)
 val WakeMoveSurface = Color(0xFFFFFFFF)
@@ -97,6 +104,25 @@ private val WakeMoveTypography = Typography(
     ),
 )
 
+private val WakeMoveDarkColors = darkColorScheme(
+    primary = WakeMoveSky,
+    onPrimary = WakeMoveNight,
+    primaryContainer = WakeMoveNightElevated,
+    onPrimaryContainer = WakeMoveSky,
+    secondary = WakeMoveDawn,
+    onSecondary = WakeMoveNight,
+    secondaryContainer = Color(0xFF512A2A),
+    onSecondaryContainer = WakeMoveDawnSoft,
+    background = WakeMoveNight,
+    onBackground = Color(0xFFF1F3FA),
+    surface = WakeMoveNightElevated,
+    onSurface = Color(0xFFF1F3FA),
+    surfaceVariant = Color(0xFF252E48),
+    onSurfaceVariant = Color(0xFFC3C9DA),
+    errorContainer = Color(0xFF5B2427),
+    onErrorContainer = Color(0xFFFFDAD8),
+)
+
 private val WakeMoveShapes = Shapes(
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(18.dp),
@@ -105,9 +131,27 @@ private val WakeMoveShapes = Shapes(
 )
 
 @Composable
-fun WakeMoveTheme(content: @Composable () -> Unit) {
+fun WakeMoveTheme(
+    themePreference: ThemePreference = ThemePreference.FOLLOW_SYSTEM,
+    useDynamicColor: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = when (themePreference) {
+        ThemePreference.FOLLOW_SYSTEM -> systemDark
+        ThemePreference.LIGHT -> false
+        ThemePreference.DARK -> true
+    }
+    val context = LocalContext.current
+    val colors = if (useDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else if (darkTheme) {
+        WakeMoveDarkColors
+    } else {
+        WakeMoveColors
+    }
     MaterialTheme(
-        colorScheme = WakeMoveColors,
+        colorScheme = colors,
         typography = WakeMoveTypography,
         shapes = WakeMoveShapes,
         content = content,

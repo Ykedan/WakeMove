@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -72,6 +74,21 @@ fun CameraChallengeScreen(
                         style = Stroke(width = 3.dp.toPx()),
                     )
                 }
+            }
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(12.dp)
+                    .testTag("camera_light_hint"),
+                color = WakeMoveNight.copy(alpha = 0.88f),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                Text(
+                    text = "请在光线充足处识别，并让全身进入画面",
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                    fontWeight = FontWeight.Medium,
+                )
             }
             Text(
                 text = guidanceText(progress.guidance),
@@ -172,7 +189,7 @@ internal fun AlarmChallengeHeader(
 
 private fun guidanceText(guidance: CameraGuidance): String = when (guidance) {
     CameraGuidance.NONE -> "保持动作稳定，系统会自动计数"
-    CameraGuidance.LOW_LIGHT -> "光线不足，请打开灯并面向光源"
+    CameraGuidance.LOW_LIGHT -> "当前光线太暗，请打开灯并面向光源"
     CameraGuidance.NO_PERSON -> "请让全身进入画面"
 }
 

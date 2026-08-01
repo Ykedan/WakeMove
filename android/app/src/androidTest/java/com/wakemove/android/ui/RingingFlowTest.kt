@@ -616,6 +616,8 @@ class RingingFlowTest {
         composeRule.onNodeWithText("2 / 5").assertIsDisplayed()
         composeRule.onNodeWithText("剩余贪睡 2 次").assertIsDisplayed()
         composeRule.onNodeWithTag("landmark_overlay").assertIsDisplayed()
+        composeRule.onNodeWithText("请在光线充足处识别，并让全身进入画面")
+            .assertIsDisplayed()
         composeRule.onNodeWithText("请让全身进入画面").assertIsDisplayed()
         composeRule.onNodeWithText("改用语音挑战").performClick()
         composeRule.runOnIdle { assertTrue(fallbackSelected) }
@@ -922,7 +924,7 @@ class RingingFlowTest {
 
     private fun setContent(content: @androidx.compose.runtime.Composable () -> Unit) {
         composeRule.setContent {
-            WakeMoveTheme(content)
+            WakeMoveTheme(content = content)
         }
     }
 

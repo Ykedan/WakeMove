@@ -3,7 +3,6 @@ package com.wakemove.android.ui.navigation
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Alarm
-import androidx.compose.material.icons.outlined.HealthAndSafety
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,12 +55,12 @@ import com.wakemove.android.ui.alarms.AlarmEditorUiState
 import com.wakemove.android.ui.alarms.AlarmEditorViewModel
 import com.wakemove.android.ui.alarms.AlarmListScreen
 import com.wakemove.android.ui.alarms.AlarmListViewModel
-import com.wakemove.android.ui.health.HealthIssue
 import com.wakemove.android.ui.health.HealthScreen
 import com.wakemove.android.ui.health.launchHealthRepair
 import com.wakemove.android.ui.history.HistoryScreen
 import com.wakemove.android.ui.ringing.RingingFlowHost
 import com.wakemove.android.ui.settings.SettingsScreen
+import com.wakemove.android.ui.settings.WakeMoveSettings
 import com.wakemove.android.ui.theme.WakeMoveMutedText
 import com.wakemove.android.ui.theme.WakeMovePeach
 import java.time.DayOfWeek
@@ -81,7 +80,6 @@ private enum class MainDestination(
 ) {
     ALARMS(ROUTE_ALARMS, "闹钟", Icons.Outlined.Alarm),
     HISTORY(ROUTE_HISTORY, "历史", Icons.Outlined.History),
-    HEALTH(ROUTE_HEALTH, "健康检查", Icons.Outlined.HealthAndSafety),
 }
 
 @Composable
@@ -91,6 +89,8 @@ fun WakeMoveNavHost(
     healthProvider: () -> HealthSnapshot,
     modifier: Modifier = Modifier,
     ringingController: RingingSessionController? = null,
+    settings: WakeMoveSettings = WakeMoveSettings(),
+    onSettingsChange: (WakeMoveSettings) -> Unit = {},
 ) {
     val ringingState = ringingController?.state?.collectAsState()?.value
     if (ringingController != null &&
@@ -143,7 +143,7 @@ fun WakeMoveNavHost(
 
     BackHandler(enabled = route != ROUTE_ALARMS) {
         if (!editorOperation.isInFlight) {
-            route = ROUTE_ALARMS
+            route = if (route == ROUTE_HEALTH) ROUTE_SETTINGS else ROUTE_ALARMS
         }
     }
 
@@ -204,6 +204,8 @@ fun WakeMoveNavHost(
         }
         ROUTE_SETTINGS -> {
             SettingsScreen(
+                settings = settings,
+                onSettingsChange = onSettingsChange,
                 onBack = { route = ROUTE_ALARMS },
                 onOpenHealth = { route = ROUTE_HEALTH },
                 onClearHistory = {
@@ -212,6 +214,15 @@ fun WakeMoveNavHost(
                         historyVersion += 1
                     }
                 },
+                modifier = modifier,
+            )
+        }
+        ROUTE_HEALTH -> {
+            HealthScreen(
+                healthProvider = healthProvider,
+                schedulingProvider = schedulingProvider,
+                onRepair = { issue -> launchHealthRepair(context, issue) },
+                onBack = { route = ROUTE_SETTINGS },
                 modifier = modifier,
             )
         }
@@ -241,15 +252,12 @@ fun WakeMoveNavHost(
                 },
                 onOpenSettings = { route = ROUTE_SETTINGS },
                 historyEvents = historyEvents,
-                healthProvider = healthProvider,
-                schedulingProvider = schedulingProvider,
                 onClearHistory = {
                     coroutineScope.launch {
                         repository.clearHistory()
                         historyVersion += 1
                     }
                 },
-                onRepairHealth = { issue -> launchHealthRepair(context, issue) },
                 modifier = modifier,
             )
         }
@@ -269,10 +277,7 @@ private fun MainShell(
     onChallengeNow: (com.wakemove.android.domain.RingingSession) -> Unit,
     onOpenSettings: () -> Unit,
     historyEvents: List<AlarmEvent>,
-    healthProvider: () -> HealthSnapshot,
-    schedulingProvider: () -> com.wakemove.android.scheduling.SchedulerHealthSnapshot,
     onClearHistory: () -> Unit,
-    onRepairHealth: (HealthIssue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -337,12 +342,6 @@ private fun MainShell(
                 MainDestination.HISTORY -> HistoryScreen(
                     events = historyEvents,
                     onClearHistory = onClearHistory,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                MainDestination.HEALTH -> HealthScreen(
-                    healthProvider = healthProvider,
-                    schedulingProvider = schedulingProvider,
-                    onRepair = onRepairHealth,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

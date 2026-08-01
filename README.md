@@ -38,6 +38,9 @@ WakeMove 把“关闭闹钟”换成一个短挑战：做几次动作，或者�
 - 4 段内置舒缓铃声，支持试听
 - 3 种震动节奏和 3 档震动力度
 - 响铃历史、权限与系统能力健康检查
+- 浅色、深色、跟随系统与 Android 12+ 动态主题色
+- 健康检查收纳到设置页，减少主导航干扰
+- 动作挑战提供常驻光线与全身入镜提示
 - 按住 10 秒的紧急停止通道
 - 首页问候和副标题随早晨、中午、下午、晚上自动变化
 
@@ -123,7 +126,7 @@ cd android
 
 当前版本已通过：
 
-- 159 项 JVM 测试
+- 160 项 JVM 测试
 - 60 项 Android 模拟器测试
 - Android lint：0 个错误
 
@@ -133,12 +136,12 @@ cd android
 [GitHub Releases](https://github.com/Ykedan/WakeMove/releases/latest) 下载：
 
 ```text
-WakeMove-v1.2.0.apk
+WakeMove-v1.3.0.apk
 ```
 
 - 支持 Android 10（API 29）及以上版本
 - APK SHA-256：
-  `6A2D5081012E8EF661C0B2B3D16F5BF778632F7A9F96D9EC6DBE6A85531AF323`
+  `DFBE08DE101D8670966FD3C2A4198A16D03CF62F67A6D366D246946578633D45`
 - 此版本使用 WakeMove 正式签名；如果设备装过开发签名测试版，需要先卸载旧版
 
 ## 当前状态
