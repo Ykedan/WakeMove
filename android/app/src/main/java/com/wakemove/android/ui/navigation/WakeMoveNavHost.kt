@@ -1,6 +1,11 @@
 package com.wakemove.android.ui.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.History
@@ -345,23 +350,33 @@ private fun MainShell(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            when (destination) {
-                MainDestination.ALARMS -> AlarmListScreen(
-                    alarms = alarms,
-                    activeSession = activeSession,
-                    operationState = operationState,
-                    onCreateAlarm = onCreateAlarm,
-                    onEditAlarm = onEditAlarm,
-                    onEnabledChange = onEnabledChange,
-                    onChallengeNow = onChallengeNow,
-                    onOpenSettings = onOpenSettings,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                MainDestination.HISTORY -> HistoryScreen(
-                    events = historyEvents,
-                    onClearHistory = onClearHistory,
-                    modifier = Modifier.fillMaxSize(),
-                )
+            AnimatedContent(
+                targetState = destination,
+                modifier = Modifier.fillMaxSize(),
+                transitionSpec = {
+                    fadeIn(tween(durationMillis = 220)) togetherWith
+                        fadeOut(tween(durationMillis = 160))
+                },
+                label = "main-destination",
+            ) { visibleDestination ->
+                when (visibleDestination) {
+                    MainDestination.ALARMS -> AlarmListScreen(
+                        alarms = alarms,
+                        activeSession = activeSession,
+                        operationState = operationState,
+                        onCreateAlarm = onCreateAlarm,
+                        onEditAlarm = onEditAlarm,
+                        onEnabledChange = onEnabledChange,
+                        onChallengeNow = onChallengeNow,
+                        onOpenSettings = onOpenSettings,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    MainDestination.HISTORY -> HistoryScreen(
+                        events = historyEvents,
+                        onClearHistory = onClearHistory,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     }

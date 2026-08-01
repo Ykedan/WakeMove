@@ -337,7 +337,7 @@ internal fun SunriseEmptyState(
             .padding(horizontal = 16.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        WakeOrbitMark(size = 156.dp)
+        WakeOrbitMark(size = 148.dp)
         Spacer(Modifier.height(8.dp))
         Text(
             text = "还没有闹钟",

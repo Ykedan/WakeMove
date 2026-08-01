@@ -81,7 +81,7 @@ fun HistoryScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    WakeOrbitMark(size = 132.dp)
+                    WakeOrbitMark(size = 148.dp)
                     Text(
                         text = "还没有响铃记录",
                         style = MaterialTheme.typography.titleLarge,

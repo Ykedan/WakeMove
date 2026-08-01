@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -31,6 +32,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import com.wakemove.android.MainActivity
@@ -336,6 +338,36 @@ class AlarmEditorTest {
         composeRule.runOnIdle { assertEquals("alarm-1", editedId) }
         composeRule.onNodeWithTag("alarm_enabled_alarm-1").performClick()
         composeRule.runOnIdle { assertEquals(false, enabledChange) }
+    }
+
+    @Test
+    fun timeWheelsCommitSettledValuesWithoutResettingTheOtherWheel() {
+        var hour by mutableIntStateOf(7)
+        var minute by mutableIntStateOf(30)
+
+        composeRule.setContent {
+            WakeMoveTheme {
+                com.wakemove.android.ui.alarms.TimeWheelPicker(
+                    hour = hour,
+                    minute = minute,
+                    onTimeChange = { updatedHour, updatedMinute ->
+                        hour = updatedHour
+                        minute = updatedMinute
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("小时_wheel").performTouchInput { swipeUp() }
+        composeRule.waitUntil(timeoutMillis = 5_000) { hour != 7 }
+        val settledHour = hour
+
+        composeRule.onNodeWithTag("分钟_wheel").performTouchInput { swipeUp() }
+        composeRule.waitUntil(timeoutMillis = 5_000) { minute != 30 }
+
+        composeRule.runOnIdle {
+            assertEquals(settledHour, hour)
+        }
     }
 
     @Test

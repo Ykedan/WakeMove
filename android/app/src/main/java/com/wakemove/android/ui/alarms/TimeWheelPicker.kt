@@ -18,6 +18,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +52,8 @@ internal fun TimeWheelPicker(
     selectedColor: Color = WakeMoveText,
     unselectedColor: Color = WakeMoveMutedText,
 ) {
+    var wheelHour by remember(hour) { mutableIntStateOf(hour) }
+    var wheelMinute by remember(minute) { mutableIntStateOf(minute) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -56,12 +63,15 @@ internal fun TimeWheelPicker(
     ) {
         NumberWheel(
             values = (0..23).toList(),
-            selectedValue = hour,
+            selectedValue = wheelHour,
             label = "小时",
             modifier = Modifier.weight(1f),
             selectedColor = selectedColor,
             unselectedColor = unselectedColor,
-            onSelected = { onTimeChange(it, minute) },
+            onSelected = { selectedHour ->
+                wheelHour = selectedHour
+                onTimeChange(wheelHour, wheelMinute)
+            },
         )
         Text(
             text = ":",
@@ -72,12 +82,15 @@ internal fun TimeWheelPicker(
         )
         NumberWheel(
             values = (0..59).toList(),
-            selectedValue = minute,
+            selectedValue = wheelMinute,
             label = "分钟",
             modifier = Modifier.weight(1f),
             selectedColor = selectedColor,
             unselectedColor = unselectedColor,
-            onSelected = { onTimeChange(hour, it) },
+            onSelected = { selectedMinute ->
+                wheelMinute = selectedMinute
+                onTimeChange(wheelHour, wheelMinute)
+            },
         )
     }
 }
@@ -94,6 +107,8 @@ private fun NumberWheel(
     onSelected: (Int) -> Unit,
 ) {
     val itemHeightPx = with(LocalDensity.current) { 48.dp.roundToPx() }
+    val currentSelectedValue by rememberUpdatedState(selectedValue)
+    val currentOnSelected by rememberUpdatedState(onSelected)
     val state = rememberLazyListState(
         initialFirstVisibleItemIndex = values.indexOf(selectedValue).coerceAtLeast(0),
     )
@@ -123,7 +138,7 @@ private fun NumberWheel(
             .distinctUntilChanged()
             .collect { index ->
                 val value = values[index]
-                if (value != selectedValue) onSelected(value)
+                if (value != currentSelectedValue) currentOnSelected(value)
             }
     }
 
@@ -135,7 +150,9 @@ private fun NumberWheel(
     ) {
         LazyColumn(
             state = state,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("${label}_wheel"),
             contentPadding = PaddingValues(vertical = 60.dp),
             flingBehavior = flingBehavior,
             horizontalAlignment = Alignment.CenterHorizontally,
