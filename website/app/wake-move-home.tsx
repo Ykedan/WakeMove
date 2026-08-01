@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import { useEffect, useRef } from "react";
+import updateManifest from "../public/update.json";
 
-const DOWNLOAD_URL =
-  "https://github.com/Ykedan/WakeMove/releases/download/v1.2.0/WakeMove-v1.2.0.apk";
+const CURRENT_VERSION = updateManifest.versionName;
+const DOWNLOAD_URL = updateManifest.downloadUrl;
 const GITHUB_URL = "https://github.com/Ykedan/WakeMove";
 const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -115,7 +116,7 @@ export function WakeMoveHome() {
           <div className="eyebrow hero-intro">
             <span>ANDROID 动作闹钟</span>
             <i />
-            <span>V1.2.0</span>
+            <span>V{CURRENT_VERSION}</span>
           </div>
           <h1>
             叫醒你的，
@@ -364,7 +365,7 @@ export function WakeMoveHome() {
           <a className="primary-action primary-action--large" href={DOWNLOAD_URL}>
             <span className="android-glyph" aria-hidden="true">↓</span>
             <span>
-              <small>WakeMove v1.2.0</small>
+              <small>WakeMove v{CURRENT_VERSION}</small>
               下载 Android APK
             </span>
           </a>

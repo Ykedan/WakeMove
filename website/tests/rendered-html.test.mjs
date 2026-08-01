@@ -31,7 +31,7 @@ test("renders the WakeMove product page", async () => {
   assert.match(html, /WakeMove 醒动/);
   assert.match(html, /叫醒你的/);
   assert.match(html, /下载 Android APK/);
-  assert.match(html, /WakeMove-v1\.2\.0\.apk/);
+  assert.match(html, /WakeMove-v1\.4\.0\.apk/);
   assert.match(html, /%2Fscreens%2Fhome\.png/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton/);
 });
