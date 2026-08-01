@@ -12,6 +12,10 @@ test("publishes a valid Android update manifest", async () => {
   assert.match(manifest.versionName, /^\d+\.\d+\.\d+$/);
   assert.match(manifest.releaseUrl, /^https:\/\/github\.com\/Ykedan\/WakeMove\/releases\/tag\//);
   assert.match(manifest.downloadUrl, /^https:\/\/github\.com\/Ykedan\/WakeMove\/releases\/download\//);
+  assert.match(
+    manifest.fallbackDownloadUrl,
+    /^https:\/\/ykedan\.github\.io\/WakeMove\/downloads\/WakeMove-v\d+\.\d+\.\d+\.apk$/,
+  );
   assert.ok(manifest.downloadUrl.includes(`v${manifest.versionName}`));
   assert.match(manifest.sha256, /^[a-f0-9]{64}$/);
   assert.ok(manifest.releaseNotes.length > 10);

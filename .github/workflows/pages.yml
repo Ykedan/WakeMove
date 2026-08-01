@@ -41,6 +41,17 @@ jobs:
         working-directory: website
         run: npx next build
 
+      - name: Add verified APK mirror
+        shell: bash
+        run: |
+          VERSION_NAME=$(node -p "require('./website/public/update.json').versionName")
+          DOWNLOAD_URL=$(node -p "require('./website/public/update.json').downloadUrl")
+          EXPECTED_SHA=$(node -p "require('./website/public/update.json').sha256")
+          APK_PATH="website/out/downloads/WakeMove-v${VERSION_NAME}.apk"
+          mkdir -p "$(dirname "$APK_PATH")"
+          curl --fail --location --retry 3 --retry-delay 3 --output "$APK_PATH" "$DOWNLOAD_URL"
+          echo "${EXPECTED_SHA}  ${APK_PATH}" | sha256sum --check --strict
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 

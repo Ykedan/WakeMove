@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import updateManifest from "../public/update.json";
 
@@ -383,7 +384,8 @@ export function WakeMoveHome() {
         <div>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
           <a href={`${GITHUB_URL}/releases`} target="_blank" rel="noreferrer">版本记录</a>
-          <a href={`${GITHUB_URL}#readme`} target="_blank" rel="noreferrer">项目说明</a>
+          <Link href="/privacy">隐私政策</Link>
+          <Link href="/security">安全说明</Link>
         </div>
         <small>© 2026 WakeMove 醒动</small>
       </footer>

@@ -7,6 +7,7 @@ data class AppUpdateInfo(
     val releaseUrl: String,
     val releaseNotes: String,
     val sha256: String,
+    val fallbackDownloadUrl: String? = null,
 )
 
 enum class AppUpdatePhase {

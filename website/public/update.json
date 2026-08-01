@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
-  "versionCode": 6,
-  "versionName": "1.5.0",
+  "versionCode": 7,
+  "versionName": "1.5.1",
   "minimumVersionCode": 5,
-  "releaseUrl": "https://github.com/Ykedan/WakeMove/releases/tag/v1.5.0",
-  "downloadUrl": "https://github.com/Ykedan/WakeMove/releases/download/v1.5.0/WakeMove-v1.5.0.apk",
-  "sha256": "57b4db99805a1e01ca34a5c49224fbaf5f40075e2fb23d50369c1e4630a49921",
-  "releaseNotes": "换用全新的醒动品牌图标。\n统一闹钟与历史空状态的轨道尺寸，新增唤醒点环绕动效和页面柔和过渡。\n修复时间滚轮停在目标时间后偶尔未更新的问题。"
+  "releaseUrl": "https://github.com/Ykedan/WakeMove/releases/tag/v1.5.1",
+  "downloadUrl": "https://github.com/Ykedan/WakeMove/releases/download/v1.5.1/WakeMove-v1.5.1.apk",
+  "fallbackDownloadUrl": "https://ykedan.github.io/WakeMove/downloads/WakeMove-v1.5.1.apk",
+  "sha256": "d4eff0d32215168e9d93f7c9ce701180c0c2b872b66634621978793bb5d6bd1f",
+  "releaseNotes": "修复部分手机应用内更新一直停在 0% 的问题。\n改为应用直接下载，并优先使用官网镜像，移动网络下也会显示真实进度。\n新增隐私政策、安全说明与可信更新校验信息。"
 }

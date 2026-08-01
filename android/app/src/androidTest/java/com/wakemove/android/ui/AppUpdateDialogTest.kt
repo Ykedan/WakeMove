@@ -1,9 +1,11 @@
 package com.wakemove.android.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import com.wakemove.android.ui.settings.AppUpdateDialog
 import com.wakemove.android.ui.theme.WakeMoveTheme
@@ -82,5 +84,28 @@ class AppUpdateDialogTest {
 
         composeRule.onNodeWithText("安装更新").performClick()
         composeRule.runOnIdle { assertTrue(installRequested) }
+    }
+
+    @Test
+    fun pendingDownloadDoesNotPretendToBeZeroPercent() {
+        composeRule.setContent {
+            WakeMoveTheme {
+                AppUpdateDialog(
+                    state = AppUpdateUiState(
+                        phase = AppUpdatePhase.DOWNLOADING,
+                        progressPercent = null,
+                        showDialog = true,
+                    ),
+                    onDismiss = {},
+                    onDownload = {},
+                    onInstall = {},
+                    onRetry = {},
+                    onIgnoreVersion = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("正在获取安装包大小…").assertIsDisplayed()
+        composeRule.onAllNodesWithText("已下载 0%").assertCountEquals(0)
     }
 }

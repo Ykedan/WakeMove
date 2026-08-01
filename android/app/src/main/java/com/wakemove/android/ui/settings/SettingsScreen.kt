@@ -467,7 +467,7 @@ private fun updateDescription(state: AppUpdateUiState): String = when (state.pha
 
 private fun updateValue(state: AppUpdateUiState): String = when (state.phase) {
     AppUpdatePhase.AVAILABLE -> "可更新"
-    AppUpdatePhase.DOWNLOADING -> "${state.progressPercent ?: 0}%"
+    AppUpdatePhase.DOWNLOADING -> state.progressPercent?.let { "$it%" } ?: "连接中"
     AppUpdatePhase.READY_TO_INSTALL -> "安装"
     AppUpdatePhase.INSTALL_PERMISSION_REQUIRED -> "继续"
     AppUpdatePhase.CHECKING -> "检查中"
