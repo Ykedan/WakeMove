@@ -1,5 +1,7 @@
 package com.wakemove.android.update
 
+import com.wakemove.android.i18n.tr
+
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
@@ -69,20 +71,20 @@ class AppUpdateManager(
                         phase = AppUpdatePhase.IDLE,
                         info = info,
                         showDialog = false,
-                        message = "已忽略 WakeMove v${info.versionName}",
+                        message = tr("已忽略 WakeMove v${info.versionName}"),
                     )
                 } else {
                     AppUpdateUiState(
                         phase = AppUpdatePhase.UP_TO_DATE,
                         showDialog = manual,
-                        message = "当前已是最新版本",
+                        message = tr("当前已是最新版本"),
                     )
                 }
             }.onFailure { error ->
                 _state.value = AppUpdateUiState(
                     phase = if (manual) AppUpdatePhase.ERROR else AppUpdatePhase.IDLE,
                     showDialog = manual,
-                    message = error.message ?: "检查更新失败，请稍后重试",
+                    message = error.message ?: tr("检查更新失败，请稍后重试"),
                 )
             }
         }
@@ -108,7 +110,7 @@ class AppUpdateManager(
         }
         _state.value = AppUpdateUiState(
             phase = AppUpdatePhase.IDLE,
-            message = current.info?.let { "已忽略 WakeMove v${it.versionName}" },
+            message = current.info?.let { tr("已忽略 WakeMove v${it.versionName}") },
         )
     }
 
@@ -133,7 +135,7 @@ class AppUpdateManager(
                                 phase = AppUpdatePhase.ERROR,
                                 info = info,
                                 showDialog = true,
-                                message = "安装包校验失败，已阻止安装，请重新下载",
+                                message = tr("安装包校验失败，已阻止安装，请重新下载"),
                             )
                         }
                         clearSavedDownload()
@@ -155,7 +157,7 @@ class AppUpdateManager(
                             phase = AppUpdatePhase.ERROR,
                             info = info,
                             showDialog = true,
-                            message = "下载没有完成，请切换网络或连接 Wi-Fi 后重试",
+                            message = tr("下载没有完成，请切换网络或连接 Wi-Fi 后重试"),
                         )
                     }
                     clearSavedDownload()
@@ -172,7 +174,7 @@ class AppUpdateManager(
             _state.value = current.copy(
                 phase = AppUpdatePhase.INSTALL_PERMISSION_REQUIRED,
                 showDialog = true,
-                message = "请允许 WakeMove 安装更新，返回后会继续安装",
+                message = tr("请允许 WakeMove 安装更新，返回后会继续安装"),
             )
             val settingsIntent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -202,7 +204,7 @@ class AppUpdateManager(
                 phase = AppUpdatePhase.ERROR,
                 info = info,
                 showDialog = true,
-                message = "安装包不存在，请重新下载",
+                message = tr("安装包不存在，请重新下载"),
             )
             clearSavedDownload()
             return
@@ -223,7 +225,7 @@ class AppUpdateManager(
             _state.value = _state.value.copy(
                 phase = AppUpdatePhase.ERROR,
                 showDialog = true,
-                message = "无法打开系统安装器，请从下载通知中安装",
+                message = tr("无法打开系统安装器，请从下载通知中安装"),
             )
         }
     }
@@ -251,7 +253,7 @@ class AppUpdateManager(
                 lastError = error
             }
         }
-        throw lastError ?: IllegalStateException("没有可用的更新下载地址")
+        throw lastError ?: IllegalStateException(tr("没有可用的更新下载地址"))
     }
 
     internal fun downloadCandidates(info: AppUpdateInfo): List<String> =
@@ -266,7 +268,7 @@ class AppUpdateManager(
             connection.setRequestProperty("Accept", APK_MIME_TYPE)
             connection.setRequestProperty("User-Agent", "WakeMove-Android-Updater")
             val responseCode = connection.responseCode
-            if (responseCode !in 200..299) error("下载服务返回 $responseCode")
+            if (responseCode !in 200..299) error(tr("下载服务返回 $responseCode"))
             val totalBytes = connection.contentLengthLong
             var downloadedBytes = 0L
             var lastProgress = -1
@@ -293,7 +295,7 @@ class AppUpdateManager(
                 }
             }
             if (downloadedBytes <= 0L || (totalBytes > 0 && downloadedBytes != totalBytes)) {
-                error("安装包下载不完整")
+                error(tr("安装包下载不完整"))
             }
         } finally {
             connection.disconnect()
@@ -336,7 +338,7 @@ class AppUpdateManager(
                 phase = AppUpdatePhase.AVAILABLE,
                 info = info,
                 showDialog = false,
-                message = "上次下载没有完成，点击后可重新下载",
+                message = tr("上次下载没有完成，点击后可重新下载"),
             )
         }
     }

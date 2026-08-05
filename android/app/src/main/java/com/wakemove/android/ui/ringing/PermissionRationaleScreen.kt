@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.ringing
 
+import com.wakemove.android.i18n.tr
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -84,9 +86,9 @@ internal fun PermissionRationaleScreen(
         }
         Text(
             text = if (issue == HealthIssue.CAMERA) {
-                "相机只在动作挑战期间启用"
+                tr("相机只在动作挑战期间启用")
             } else {
-                "麦克风只在语音挑战期间启用"
+                tr("麦克风只在语音挑战期间启用")
             },
             modifier = Modifier.padding(top = 22.dp, start = 24.dp, end = 24.dp),
             color = Color.White,
@@ -95,9 +97,9 @@ internal fun PermissionRationaleScreen(
         )
         Text(
             text = if (issue == HealthIssue.CAMERA) {
-                "动作识别完全在本机完成，WakeMove 不保存或上传相机画面。"
+                tr("动作识别完全在本机完成，WakeMove 不保存或上传相机画面。")
             } else {
-                "录音只交给内置 Vosk 离线识别，WakeMove 不保存或上传音频。"
+                tr("录音只交给内置 Vosk 离线识别，WakeMove 不保存或上传音频。")
             },
             modifier = Modifier.padding(horizontal = 30.dp, vertical = 12.dp),
             color = WakeMoveSky,
@@ -119,16 +121,16 @@ internal fun PermissionRationaleScreen(
                 ) {
                     Text(
                         text = if (permanentlyDenied) {
-                            "请在系统设置开启${issue.sensorName()}权限"
+                            tr("请在系统设置开启${issue.sensorName()}权限")
                         } else {
-                            "${issue.sensorName()}权限被拒绝，可再次请求或改用备用挑战"
+                            tr("${issue.sensorName()}权限被拒绝，可再次请求或改用备用挑战")
                         },
                         color = Color(0xFFFFC1BC),
                         fontWeight = FontWeight.SemiBold,
                     )
                     if (fallbackLabel != null && fallbackTarget != null) {
                         Text(
-                            text = "备用目标：$fallbackTarget",
+                            text = tr("备用目标：$fallbackTarget"),
                             color = WakeMoveSky,
                         )
                         OutlinedButton(
@@ -158,11 +160,11 @@ internal fun PermissionRationaleScreen(
         ) {
             Text(
                 text = if (permanentlyDenied) {
-                    "打开权限设置"
+                    tr("打开权限设置")
                 } else if (issue == HealthIssue.CAMERA) {
-                    "允许相机"
+                    tr("允许相机")
                 } else {
-                    "允许麦克风"
+                    tr("允许麦克风")
                 },
                 fontWeight = FontWeight.Bold,
             )
@@ -171,7 +173,7 @@ internal fun PermissionRationaleScreen(
 }
 
 private fun HealthIssue.sensorName(): String = when (this) {
-    HealthIssue.CAMERA -> "相机"
-    HealthIssue.MICROPHONE -> "麦克风"
+    HealthIssue.CAMERA -> tr("相机")
+    HealthIssue.MICROPHONE -> tr("麦克风")
     else -> ""
 }

@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.settings
 
+import com.wakemove.android.i18n.tr
+
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -96,7 +98,7 @@ fun SettingsScreen(
             ) {
                 Icon(
                     Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "返回",
+                    contentDescription = tr("返回"),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -107,7 +109,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = "设置",
+                    text = tr("设置"),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -130,36 +132,36 @@ fun SettingsScreen(
                     tint = WakeMoveSky,
                 )
                 Text(
-                    text = "你的清晨，只属于你",
+                    text = tr("你的清晨，只属于你"),
                     color = Color.White,
                     style = MaterialTheme.typography.titleLarge,
                 )
                 Text(
-                    text = "动作和语音都在本机处理，相机画面与录音不会被保存或上传。",
+                    text = tr("动作和语音都在本机处理，相机画面与录音不会被保存或上传。"),
                     color = WakeMoveSky,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
         }
 
-        SettingsSectionTitle("闹钟可靠性")
+        SettingsSectionTitle(tr("闹钟可靠性"))
         SettingsGroup {
             SettingsNavigationRow(
                 icon = Icons.Rounded.HealthAndSafety,
-                title = "健康检查",
-                description = "检查通知、全屏响铃与挑战权限",
-                value = "查看",
+                title = tr("健康检查"),
+                description = tr("检查通知、全屏响铃与挑战权限"),
+                value = tr("查看"),
                 modifier = Modifier.testTag("settings_health_check"),
                 onClick = onOpenHealth,
             )
         }
 
-        SettingsSectionTitle("外观与语言")
+        SettingsSectionTitle(tr("外观与语言"))
         SettingsGroup {
             SettingsNavigationRow(
                 icon = Icons.Rounded.Palette,
-                title = "显示模式",
-                description = "选择浅色、深色或跟随设备",
+                title = tr("显示模式"),
+                description = tr("选择浅色、深色或跟随设备"),
                 value = settings.theme.displayName(),
                 modifier = Modifier.testTag("settings_theme"),
                 onClick = { showThemeDialog = true },
@@ -167,11 +169,11 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SettingsSwitchRow(
                 icon = Icons.Rounded.ColorLens,
-                title = "使用系统主题色",
+                title = tr("使用系统主题色"),
                 description = if (dynamicColorSupported) {
-                    "根据设备壁纸调整界面颜色"
+                    tr("根据设备壁纸调整界面颜色")
                 } else {
-                    "需要 Android 12 或更高版本"
+                    tr("需要 Android 12 或更高版本")
                 },
                 checked = settings.useDynamicColor && dynamicColorSupported,
                 enabled = dynamicColorSupported,
@@ -183,19 +185,19 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SettingsNavigationRow(
                 icon = Icons.Rounded.Language,
-                title = "应用语言",
-                description = "当前完整支持简体中文",
+                title = tr("应用语言"),
+                description = tr("当前完整支持简体中文和英文"),
                 value = settings.language.displayName(),
                 modifier = Modifier.testTag("settings_language"),
                 onClick = { showLanguageDialog = true },
             )
         }
 
-        SettingsSectionTitle("数据与版本")
+        SettingsSectionTitle(tr("数据与版本"))
         SettingsGroup {
             SettingsNavigationRow(
                 icon = Icons.Rounded.SystemUpdateAlt,
-                title = "应用更新",
+                title = tr("应用更新"),
                 description = updateDescription(updateState),
                 value = updateValue(updateState),
                 modifier = Modifier.testTag("settings_app_update"),
@@ -204,9 +206,9 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SettingsNavigationRow(
                 icon = Icons.Rounded.DeleteSweep,
-                title = "清除响铃历史",
-                description = "仅删除本机保存的响铃与挑战记录",
-                value = "清除",
+                title = tr("清除响铃历史"),
+                description = tr("仅删除本机保存的响铃与挑战记录"),
+                value = tr("清除"),
                 valueColor = MaterialTheme.colorScheme.error,
                 modifier = Modifier.testTag("settings_clear_history"),
                 onClick = { showClearHistoryDialog = true },
@@ -214,13 +216,13 @@ fun SettingsScreen(
         }
 
         Text(
-            text = "WakeMove · 醒动  v${BuildConfig.VERSION_NAME}",
+            text = tr("WakeMove · 醒动  v${BuildConfig.VERSION_NAME}"),
             modifier = Modifier.padding(top = 18.dp),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "不只叫醒你，还让你真正醒来。",
+            text = tr("不只叫醒你，还让你真正醒来。"),
             modifier = Modifier.padding(top = 4.dp, bottom = 36.dp),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -229,7 +231,7 @@ fun SettingsScreen(
 
     if (showThemeDialog) {
         ChoiceDialog(
-            title = "显示模式",
+            title = tr("显示模式"),
             options = ThemePreference.entries,
             selected = settings.theme,
             optionLabel = ThemePreference::displayName,
@@ -242,11 +244,11 @@ fun SettingsScreen(
     }
     if (showLanguageDialog) {
         ChoiceDialog(
-            title = "应用语言",
+            title = tr("应用语言"),
             options = LanguagePreference.entries,
             selected = settings.language,
             optionLabel = LanguagePreference::displayName,
-            supportingText = "英文界面将在所有页面完成翻译后开放，避免出现中英混杂。",
+            supportingText = tr("选择后立即切换应用界面语言。"),
             onSelected = { selected ->
                 onSettingsChange(settings.copy(language = selected))
                 showLanguageDialog = false
@@ -257,8 +259,8 @@ fun SettingsScreen(
     if (showClearHistoryDialog) {
         AlertDialog(
             onDismissRequest = { showClearHistoryDialog = false },
-            title = { Text("清除响铃历史？") },
-            text = { Text("闹钟和设置不会被删除，已清除的历史记录无法恢复。") },
+            title = { Text(tr("清除响铃历史？")) },
+            text = { Text(tr("闹钟和设置不会被删除，已清除的历史记录无法恢复。")) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -266,12 +268,12 @@ fun SettingsScreen(
                         showClearHistoryDialog = false
                     },
                 ) {
-                    Text("确认清除", color = MaterialTheme.colorScheme.error)
+                    Text(tr("确认清除"), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearHistoryDialog = false }) {
-                    Text("取消")
+                    Text(tr("取消"))
                 }
             },
         )
@@ -437,41 +439,42 @@ private fun <T> ChoiceDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("完成") }
+            TextButton(onClick = onDismiss) { Text(tr("完成")) }
         },
     )
 }
 
 private fun ThemePreference.displayName(): String = when (this) {
-    ThemePreference.FOLLOW_SYSTEM -> "跟随系统"
-    ThemePreference.LIGHT -> "浅色"
-    ThemePreference.DARK -> "深色"
+    ThemePreference.FOLLOW_SYSTEM -> tr("跟随系统")
+    ThemePreference.LIGHT -> tr("浅色")
+    ThemePreference.DARK -> tr("深色")
 }
 
 private fun LanguagePreference.displayName(): String = when (this) {
-    LanguagePreference.FOLLOW_SYSTEM -> "跟随系统"
-    LanguagePreference.SIMPLIFIED_CHINESE -> "简体中文"
+    LanguagePreference.FOLLOW_SYSTEM -> tr("跟随系统")
+    LanguagePreference.SIMPLIFIED_CHINESE -> tr("简体中文")
+    LanguagePreference.ENGLISH -> "English"
 }
 
 private fun updateDescription(state: AppUpdateUiState): String = when (state.phase) {
-    AppUpdatePhase.AVAILABLE -> "WakeMove v${state.info?.versionName} 已经准备好"
-    AppUpdatePhase.DOWNLOADING -> state.progressPercent?.let { "正在下载，已完成 $it%" }
-        ?: "正在下载安装包"
-    AppUpdatePhase.READY_TO_INSTALL -> "安装包已下载，点击继续安装"
-    AppUpdatePhase.INSTALL_PERMISSION_REQUIRED -> "需要允许安装应用"
-    AppUpdatePhase.ERROR -> "上次检查未成功，点击重试"
-    AppUpdatePhase.UP_TO_DATE -> "当前是最新版本 v${BuildConfig.VERSION_NAME}"
-    AppUpdatePhase.CHECKING -> "正在连接版本服务"
-    AppUpdatePhase.IDLE -> state.message ?: "检查新功能和可靠性改进"
+    AppUpdatePhase.AVAILABLE -> tr("WakeMove v${state.info?.versionName} 已经准备好")
+    AppUpdatePhase.DOWNLOADING -> state.progressPercent?.let { tr("正在下载，已完成 $it%") }
+        ?: tr("正在下载安装包")
+    AppUpdatePhase.READY_TO_INSTALL -> tr("安装包已下载，点击继续安装")
+    AppUpdatePhase.INSTALL_PERMISSION_REQUIRED -> tr("需要允许安装应用")
+    AppUpdatePhase.ERROR -> tr("上次检查未成功，点击重试")
+    AppUpdatePhase.UP_TO_DATE -> tr("当前是最新版本 v${BuildConfig.VERSION_NAME}")
+    AppUpdatePhase.CHECKING -> tr("正在连接版本服务")
+    AppUpdatePhase.IDLE -> state.message ?: tr("检查新功能和可靠性改进")
 }
 
 private fun updateValue(state: AppUpdateUiState): String = when (state.phase) {
-    AppUpdatePhase.AVAILABLE -> "可更新"
-    AppUpdatePhase.DOWNLOADING -> state.progressPercent?.let { "$it%" } ?: "连接中"
-    AppUpdatePhase.READY_TO_INSTALL -> "安装"
-    AppUpdatePhase.INSTALL_PERMISSION_REQUIRED -> "继续"
-    AppUpdatePhase.CHECKING -> "检查中"
-    AppUpdatePhase.ERROR -> "重试"
-    AppUpdatePhase.UP_TO_DATE -> "最新"
-    AppUpdatePhase.IDLE -> "检查"
+    AppUpdatePhase.AVAILABLE -> tr("可更新")
+    AppUpdatePhase.DOWNLOADING -> state.progressPercent?.let { "$it%" } ?: tr("连接中")
+    AppUpdatePhase.READY_TO_INSTALL -> tr("安装")
+    AppUpdatePhase.INSTALL_PERMISSION_REQUIRED -> tr("继续")
+    AppUpdatePhase.CHECKING -> tr("检查中")
+    AppUpdatePhase.ERROR -> tr("重试")
+    AppUpdatePhase.UP_TO_DATE -> tr("最新")
+    AppUpdatePhase.IDLE -> tr("检查")
 }

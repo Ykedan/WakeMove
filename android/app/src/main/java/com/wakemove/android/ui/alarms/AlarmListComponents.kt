@@ -1,5 +1,8 @@
 package com.wakemove.android.ui.alarms
 
+import com.wakemove.android.i18n.tr
+import com.wakemove.android.i18n.WakeMoveLocale
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -72,20 +75,20 @@ internal fun greetingFor(hour: Int): GreetingCopy {
     require(hour in 0..23) { "hour must be between 0 and 23" }
     return when (hour) {
         in 5..10 -> GreetingCopy(
-            title = "早上好",
-            subtitle = "让今天从真正醒来开始",
+            title = tr("早上好"),
+            subtitle = tr("让今天从真正醒来开始"),
         )
         in 11..13 -> GreetingCopy(
-            title = "中午好",
-            subtitle = "给午后的安排留一个准时提醒",
+            title = tr("中午好"),
+            subtitle = tr("给午后的安排留一个准时提醒"),
         )
         in 14..17 -> GreetingCopy(
-            title = "下午好",
-            subtitle = "把接下来的计划稳稳叫醒",
+            title = tr("下午好"),
+            subtitle = tr("把接下来的计划稳稳叫醒"),
         )
         else -> GreetingCopy(
-            title = "晚上好",
-            subtitle = "为明天准备一个可靠的开始",
+            title = tr("晚上好"),
+            subtitle = tr("为明天准备一个可靠的开始"),
         )
     }
 }
@@ -132,7 +135,7 @@ internal fun MorningHeader(
             )
             Text(
                 text = date.format(
-                    DateTimeFormatter.ofPattern("M月d日 EEEE", Locale.SIMPLIFIED_CHINESE),
+                    DateTimeFormatter.ofPattern(tr("M月d日 EEEE"), WakeMoveLocale.currentLocale()),
                 ),
                 modifier = Modifier.padding(top = 4.dp),
                 style = MaterialTheme.typography.labelLarge,
@@ -150,7 +153,7 @@ internal fun MorningHeader(
         ) {
             Icon(
                 imageVector = Icons.Outlined.Settings,
-                contentDescription = "设置",
+                contentDescription = tr("设置"),
                 tint = settingsContentColor,
             )
         }
@@ -164,7 +167,9 @@ internal fun NextAlarmHero(
     enabled: Boolean = true,
 ) {
     val alarmTime = model.occurrence.format(TIME_FORMAT)
-    val occurrenceDate = model.occurrence.format(DATE_FORMAT)
+    val occurrenceDate = model.occurrence.format(
+        DateTimeFormatter.ofPattern(tr("M月d日"), WakeMoveLocale.currentLocale()),
+    )
     val heroColors = if (enabled) {
         listOf(WakeMoveNight, Color(0xFF26345F))
     } else {
@@ -221,7 +226,7 @@ internal fun NextAlarmHero(
                     color = WakeMoveSky,
                 )
                 Text(
-                    text = "下一次唤醒",
+                    text = tr("下一次唤醒"),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = WakeMoveSunlight,
@@ -236,7 +241,7 @@ internal fun NextAlarmHero(
                 color = heroContentColor,
             )
             Text(
-                text = model.alarm.label.ifBlank { "起床闹钟" },
+                text = model.alarm.label.ifBlank { tr("起床闹钟") },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = heroContentColor,
@@ -282,13 +287,13 @@ internal fun DisabledAlarmHero() {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = "安静的早晨",
+                text = tr("安静的早晨"),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "开启一个闹钟，迎接新的早晨",
+                text = tr("开启一个闹钟，迎接新的早晨"),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -310,13 +315,13 @@ internal fun UnschedulableAlarmHero() {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = "需要调整时间",
+                text = tr("需要调整时间"),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "已启用的闹钟没有可用时间，请重新设置",
+                text = tr("已启用的闹钟没有可用时间，请重新设置"),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -340,13 +345,13 @@ internal fun SunriseEmptyState(
         WakeOrbitMark(size = 148.dp)
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "还没有闹钟",
+            text = tr("还没有闹钟"),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "用动作或语音挑战，帮你真正清醒地开始一天",
+            text = tr("用动作或语音挑战，帮你真正清醒地开始一天"),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -367,7 +372,7 @@ internal fun SunriseEmptyState(
                 contentDescription = null,
             )
             Text(
-                text = "设置第一个闹钟",
+                text = tr("设置第一个闹钟"),
                 modifier = Modifier.padding(start = 8.dp),
                 fontWeight = FontWeight.SemiBold,
             )
@@ -446,7 +451,7 @@ internal fun SunriseAlarmCard(
                 Text(
                     text = alarmTime,
                     modifier = Modifier.clearAndSetSemantics {
-                        contentDescription = "闹钟时间 $alarmTime"
+                        contentDescription = tr("闹钟时间 $alarmTime")
                     },
                     style = MaterialTheme.typography.displayMedium,
                     color = primaryTextColor,
@@ -471,7 +476,7 @@ internal fun SunriseAlarmCard(
                 )
             }
             Text(
-                text = alarm.label.ifBlank { "起床闹钟" },
+                text = alarm.label.ifBlank { tr("起床闹钟") },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = primaryTextColor,
@@ -503,9 +508,9 @@ internal fun SunriseAlarmCard(
                 ) {
                     Text(
                         text = if (sessionStatus == SessionStatus.SNOOZED) {
-                            "贪睡中 · ${snoozedUntil ?: "--:--"} 再响"
+                            tr("贪睡中 · ${snoozedUntil ?: ")--:--tr("} 再响")
                         } else {
-                            "正在响铃 · 完成挑战后可修改"
+                            tr("正在响铃 · 完成挑战后可修改")
                         },
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodyMedium,
@@ -523,7 +528,7 @@ internal fun SunriseAlarmCard(
                             ),
                         ) {
                             Text(
-                                text = "立即挑战",
+                                text = tr("立即挑战"),
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
@@ -554,7 +559,7 @@ internal fun AddAlarmButton(
         ),
     ) {
         Text(
-            text = "＋ 添加新闹钟",
+            text = tr("＋ 添加新闹钟"),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
@@ -562,37 +567,36 @@ internal fun AddAlarmButton(
 }
 
 internal fun Set<DayOfWeek>.chineseDescription(): String = when {
-    isEmpty() -> "仅响一次"
-    size == 7 -> "每天"
+    isEmpty() -> tr("仅响一次")
+    size == 7 -> tr("每天")
     this == setOf(
         DayOfWeek.MONDAY,
         DayOfWeek.TUESDAY,
         DayOfWeek.WEDNESDAY,
         DayOfWeek.THURSDAY,
         DayOfWeek.FRIDAY,
-    ) -> "工作日"
+    ) -> tr("工作日")
     else -> sortedBy(DayOfWeek::getValue).joinToString("、") { day ->
         when (day) {
-            DayOfWeek.MONDAY -> "周一"
-            DayOfWeek.TUESDAY -> "周二"
-            DayOfWeek.WEDNESDAY -> "周三"
-            DayOfWeek.THURSDAY -> "周四"
-            DayOfWeek.FRIDAY -> "周五"
-            DayOfWeek.SATURDAY -> "周六"
-            DayOfWeek.SUNDAY -> "周日"
+            DayOfWeek.MONDAY -> tr("周一")
+            DayOfWeek.TUESDAY -> tr("周二")
+            DayOfWeek.WEDNESDAY -> tr("周三")
+            DayOfWeek.THURSDAY -> tr("周四")
+            DayOfWeek.FRIDAY -> tr("周五")
+            DayOfWeek.SATURDAY -> tr("周六")
+            DayOfWeek.SUNDAY -> tr("周日")
         }
     }
 }
 
 internal fun Alarm.targetDescription(): String =
     if (challengeType == ChallengeType.VOICE_PHRASE) {
-        "读完才能关闭"
+        tr("读完才能关闭")
     } else {
-        "$targetCount 次"
+        tr("$targetCount 次")
     }
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
-private val DATE_FORMAT = DateTimeFormatter.ofPattern("M月d日")
 private const val DISABLED_CONTAINER_ALPHA = 0.55f
 private const val DISABLED_CONTENT_ALPHA = 0.58f
 private const val DISABLED_SECONDARY_ALPHA = 0.45f

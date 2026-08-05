@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.alarms
 
+import com.wakemove.android.i18n.tr
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -64,7 +66,7 @@ internal fun TimeWheelPicker(
         NumberWheel(
             values = (0..23).toList(),
             selectedValue = wheelHour,
-            label = "小时",
+            label = tr("小时"),
             modifier = Modifier.weight(1f),
             selectedColor = selectedColor,
             unselectedColor = unselectedColor,
@@ -83,7 +85,7 @@ internal fun TimeWheelPicker(
         NumberWheel(
             values = (0..59).toList(),
             selectedValue = wheelMinute,
-            label = "分钟",
+            label = tr("分钟"),
             modifier = Modifier.weight(1f),
             selectedColor = selectedColor,
             unselectedColor = unselectedColor,

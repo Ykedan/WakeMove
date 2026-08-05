@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.health
 
+import com.wakemove.android.i18n.tr
+
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -147,7 +149,7 @@ fun HealthScreen(
                 ) {
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "返回设置",
+                        contentDescription = tr("返回设置"),
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -159,7 +161,7 @@ fun HealthScreen(
                     color = WakeMoveBlue,
                 )
                 Text(
-                    text = "健康检查",
+                    text = tr("健康检查"),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -193,25 +195,25 @@ fun HealthScreen(
                     )
                     Text(
                         text = if (snapshot.canScheduleAlarms) {
-                            "闹钟基础能力正常"
+                            tr("闹钟基础能力正常")
                         } else {
-                            "需要修复后才能可靠响铃"
+                            tr("需要修复后才能可靠响铃")
                         },
                         color = Color.White,
                         style = MaterialTheme.typography.titleLarge,
                     )
                 }
                 Text(
-                    text = "最近调度：${scheduling.lastResult.label()}",
+                    text = tr("最近调度：${scheduling.lastResult.label()}"),
                     color = WakeMoveSky,
                 )
                 Text(
                     text = scheduling.nextRegisteredAt?.let {
-                        "下次已注册：${
+                        tr("下次已注册：${
                             it.atZone(zoneId)
                                 .format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))
-                        }"
-                    } ?: "下次已注册：暂无",
+                        }")
+                    } ?: tr("下次已注册：暂无"),
                     color = WakeMoveSky,
                 )
             }
@@ -221,7 +223,7 @@ fun HealthScreen(
             shape = MaterialTheme.shapes.medium,
         ) {
             Text(
-                text = "重启后需先完成首次解锁，才会恢复闹钟调度；首次解锁前暂不支持。",
+                text = tr("重启后需先完成首次解锁，才会恢复闹钟调度；首次解锁前暂不支持。"),
                 modifier = Modifier.padding(14.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -229,16 +231,18 @@ fun HealthScreen(
         }
         scheduling.latestDelivery?.let { delivery ->
             Text(
-                text = "最近投递：${delivery.stage.chineseLabel()} · ${
+                text = tr("最近投递：${delivery.stage.chineseLabel()} · ${
                     delivery.stageAt.atZone(zoneId)
                         .format(DateTimeFormatter.ofPattern("MM-dd HH:mm:ss"))
-                }",
+                }"),
                 modifier = Modifier.testTag("latest_delivery_stage"),
             )
             if (delivery.stage == DeliveryStage.FAILED) {
                 Text(
-                    text = "失败位置：${delivery.failureStage?.chineseLabel() ?: "未知"}" +
-                        (delivery.failureClass?.let { "（$it）" } ?: ""),
+                    text = tr(
+                        "失败位置：${delivery.failureStage?.chineseLabel() ?: "未知"}" +
+                            (delivery.failureClass?.let { "（$it）" } ?: ""),
+                    ),
                     modifier = Modifier.testTag("latest_delivery_failure"),
                 )
             }
@@ -333,9 +337,9 @@ fun HealthScreen(
                             modifier = Modifier
                                 .testTag("repair_${row.issue.tag()}")
                                 .semantics {
-                                    contentDescription = "修复${row.label}"
+                                    contentDescription = tr("修复${row.label}")
                                 },
-                        ) { Text("去修复") }
+                        ) { Text(tr("去修复")) }
                     }
                 }
             }
@@ -344,9 +348,9 @@ fun HealthScreen(
     if (showNotificationRationale) {
         AlertDialog(
             onDismissRequest = { showNotificationRationale = false },
-            title = { Text("允许响铃通知") },
+            title = { Text(tr("允许响铃通知")) },
             text = {
-                Text("WakeMove 需要通知权限来持续显示正在响铃的闹钟和挑战入口。")
+                Text(tr("WakeMove 需要通知权限来持续显示正在响铃的闹钟和挑战入口。"))
             },
             confirmButton = {
                 TextButton(
@@ -364,12 +368,12 @@ fun HealthScreen(
                         }
                     },
                 ) {
-                    Text("继续授权")
+                    Text(tr("继续授权"))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showNotificationRationale = false }) {
-                    Text("暂不")
+                    Text(tr("暂不"))
                 }
             },
         )
@@ -383,27 +387,27 @@ private data class HealthRow(
 )
 
 private fun healthRows(snapshot: HealthSnapshot) = listOf(
-    HealthRow(HealthIssue.EXACT_ALARM, "精确闹钟", snapshot.exactAlarm),
-    HealthRow(HealthIssue.NOTIFICATIONS, "通知权限", snapshot.notifications),
+    HealthRow(HealthIssue.EXACT_ALARM, tr("精确闹钟"), snapshot.exactAlarm),
+    HealthRow(HealthIssue.NOTIFICATIONS, tr("通知权限"), snapshot.notifications),
     HealthRow(
         HealthIssue.NOTIFICATION_CHANNEL,
-        "响铃通知通道",
+        tr("响铃通知通道"),
         snapshot.notificationChannel,
     ),
-    HealthRow(HealthIssue.FULL_SCREEN_INTENT, "全屏响铃", snapshot.fullScreenIntent),
-    HealthRow(HealthIssue.CAMERA, "相机", snapshot.camera),
-    HealthRow(HealthIssue.MICROPHONE, "麦克风", snapshot.microphone),
+    HealthRow(HealthIssue.FULL_SCREEN_INTENT, tr("全屏响铃"), snapshot.fullScreenIntent),
+    HealthRow(HealthIssue.CAMERA, tr("相机"), snapshot.camera),
+    HealthRow(HealthIssue.MICROPHONE, tr("麦克风"), snapshot.microphone),
     HealthRow(
         HealthIssue.SPEECH_RECOGNITION,
-        "离线语音识别",
+        tr("离线语音识别"),
         snapshot.speechRecognition,
     ),
 )
 
 private fun HealthStatus.label(): String = when (this) {
-    HealthStatus.READY -> "正常"
-    HealthStatus.ACTION_REQUIRED -> "需要操作"
-    HealthStatus.UNAVAILABLE -> "设备不可用"
+    HealthStatus.READY -> tr("正常")
+    HealthStatus.ACTION_REQUIRED -> tr("需要操作")
+    HealthStatus.UNAVAILABLE -> tr("设备不可用")
 }
 
 private fun HealthIssue.tag(): String = when (this) {
@@ -417,24 +421,24 @@ private fun HealthIssue.tag(): String = when (this) {
 }
 
 private fun SchedulingResult.label(): String = when (this) {
-    SchedulingResult.NEVER -> "暂无记录"
-    SchedulingResult.SUCCESS -> "登记成功"
-    SchedulingResult.FAILURE -> "登记失败"
+    SchedulingResult.NEVER -> tr("暂无记录")
+    SchedulingResult.SUCCESS -> tr("登记成功")
+    SchedulingResult.FAILURE -> tr("登记失败")
 }
 
 private fun DeliveryStage.chineseLabel(): String = when (this) {
-    DeliveryStage.REGISTERED -> "已登记到系统"
-    DeliveryStage.DELIVERED -> "目标时间已投递"
-    DeliveryStage.NEXT_REPEAT_REGISTERED -> "下一次重复已登记"
-    DeliveryStage.SERVICE_START_REQUESTED -> "已请求启动响铃"
-    DeliveryStage.SERVICE_STARTED -> "响铃服务已启动"
-    DeliveryStage.AUDIO_STARTED -> "声音已开始"
-    DeliveryStage.RINGING -> "正在响铃"
-    DeliveryStage.SNOOZED -> "正在贪睡"
-    DeliveryStage.COMPLETED -> "挑战已完成"
-    DeliveryStage.BYPASSED -> "已紧急停止"
-    DeliveryStage.MISSED -> "已错过"
-    DeliveryStage.FAILED -> "投递失败"
+    DeliveryStage.REGISTERED -> tr("已登记到系统")
+    DeliveryStage.DELIVERED -> tr("目标时间已投递")
+    DeliveryStage.NEXT_REPEAT_REGISTERED -> tr("下一次重复已登记")
+    DeliveryStage.SERVICE_START_REQUESTED -> tr("已请求启动响铃")
+    DeliveryStage.SERVICE_STARTED -> tr("响铃服务已启动")
+    DeliveryStage.AUDIO_STARTED -> tr("声音已开始")
+    DeliveryStage.RINGING -> tr("正在响铃")
+    DeliveryStage.SNOOZED -> tr("正在贪睡")
+    DeliveryStage.COMPLETED -> tr("挑战已完成")
+    DeliveryStage.BYPASSED -> tr("已紧急停止")
+    DeliveryStage.MISSED -> tr("已错过")
+    DeliveryStage.FAILED -> tr("投递失败")
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

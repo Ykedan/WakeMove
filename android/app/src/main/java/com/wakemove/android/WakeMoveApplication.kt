@@ -9,6 +9,7 @@ import com.wakemove.android.data.AlarmDatabase
 import com.wakemove.android.data.RoomAlarmRepository
 import com.wakemove.android.domain.AlarmRepository
 import com.wakemove.android.health.AndroidHealthService
+import com.wakemove.android.i18n.WakeMoveLocale
 import com.wakemove.android.ringing.AndroidAlarmAudioPlayer
 import com.wakemove.android.ringing.AndroidAlarmVibrator
 import com.wakemove.android.ringing.RingingDependencies
@@ -61,6 +62,7 @@ class WakeMoveApplication :
 
     override fun onCreate() {
         super.onCreate()
+        WakeMoveLocale.initialize(this)
         RingingNotificationChannel.ensureCreated(this)
         AppUpdateNotifications.ensureChannel(this)
         appUpdateManager = AppUpdateManager(this, applicationScope)

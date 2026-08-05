@@ -19,4 +19,5 @@ test("publishes a valid Android update manifest", async () => {
   assert.ok(manifest.downloadUrl.includes(`v${manifest.versionName}`));
   assert.match(manifest.sha256, /^[a-f0-9]{64}$/);
   assert.ok(manifest.releaseNotes.length > 10);
+  assert.ok(manifest.releaseNotesEn.length > 10);
 });

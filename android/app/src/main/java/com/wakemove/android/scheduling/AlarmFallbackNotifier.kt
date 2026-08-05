@@ -1,5 +1,7 @@
 package com.wakemove.android.scheduling
 
+import com.wakemove.android.i18n.tr
+
 import android.Manifest
 import android.app.Notification
 import android.app.PendingIntent
@@ -36,8 +38,8 @@ class AlarmFallbackNotifier(private val context: Context) {
             RingingService.NOTIFICATION_CHANNEL_ID,
         )
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("WakeMove 闹钟启动失败")
-            .setContentText("点此打开 WakeMove，并检查系统后台运行设置")
+            .setContentTitle(tr("WakeMove 闹钟启动失败"))
+            .setContentText(tr("点此打开 WakeMove，并检查系统后台运行设置"))
             .setCategory(Notification.CATEGORY_ALARM)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setContentIntent(openApp)

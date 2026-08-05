@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.alarms
 
+import com.wakemove.android.i18n.tr
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -97,7 +99,7 @@ internal fun SunriseTimeCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = "时间",
+            text = tr("时间"),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = WakeMoveSky,
@@ -255,7 +257,7 @@ internal fun ChallengeSelector(
                 if (selected) {
                     Icon(
                         imageVector = Icons.Rounded.CheckCircle,
-                        contentDescription = "已选择",
+                        contentDescription = tr("已选择"),
                         tint = selectedForeground,
                     )
                 }
@@ -277,7 +279,7 @@ internal fun TargetStepper(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "目标次数",
+            text = tr("目标次数"),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
@@ -296,7 +298,7 @@ internal fun TargetStepper(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Remove,
-                    contentDescription = "减少目标次数",
+                    contentDescription = tr("减少目标次数"),
                     tint = if (count > 1) WakeMoveText else {
                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                     },
@@ -317,7 +319,7 @@ internal fun TargetStepper(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
-                    contentDescription = "增加目标次数",
+                    contentDescription = tr("增加目标次数"),
                     tint = WakeMoveText,
                 )
             }
@@ -338,7 +340,7 @@ internal fun SoundAndVibrationCard(
     onPreviewVibration: (VibrationPattern, VibrationIntensity) -> Unit,
 ) {
     val sound = AlarmSoundCatalog.find(soundId)
-    EditorCard(title = "声音与震动") {
+    EditorCard(title = tr("声音与震动")) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -390,12 +392,12 @@ internal fun SoundAndVibrationCard(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "震动",
+                    text = tr("震动"),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = if (vibrationEnabled) "响铃时同步震动" else "仅播放铃声",
+                    text = if (vibrationEnabled) tr("响铃时同步震动") else tr("仅播放铃声"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -409,7 +411,7 @@ internal fun SoundAndVibrationCard(
 
         if (vibrationEnabled) {
             VibrationChoiceRow(
-                label = "震动频率",
+                label = tr("震动频率"),
                 options = VibrationPattern.entries,
                 selected = vibrationPattern,
                 optionLabel = VibrationPattern::chineseLabel,
@@ -420,7 +422,7 @@ internal fun SoundAndVibrationCard(
                 },
             )
             VibrationChoiceRow(
-                label = "震动力度",
+                label = tr("震动力度"),
                 options = VibrationIntensity.entries,
                 selected = vibrationIntensity,
                 optionLabel = VibrationIntensity::chineseLabel,
@@ -431,7 +433,7 @@ internal fun SoundAndVibrationCard(
                 },
             )
             Text(
-                text = "点击选项可感受一次震动",
+                text = tr("点击选项可感受一次震动"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -484,7 +486,7 @@ internal fun SoundSelectionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("选择唤醒铃声") },
+        title = { Text(tr("选择唤醒铃声")) },
         text = {
             Column(
                 modifier = Modifier
@@ -493,7 +495,7 @@ internal fun SoundSelectionDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = "四段原创舒缓声景，点击播放键试听",
+                    text = tr("四段原创舒缓声景，点击播放键试听"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -550,9 +552,9 @@ internal fun SoundSelectionDialog(
                                     Icons.Rounded.PlayArrow
                                 },
                                 contentDescription = if (previewingSoundId == sound.id) {
-                                    "停止试听${sound.name}"
+                                    tr("停止试听${sound.name}")
                                 } else {
-                                    "试听${sound.name}"
+                                    tr("试听${sound.name}")
                                 },
                             )
                         }
@@ -562,7 +564,7 @@ internal fun SoundSelectionDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("完成")
+                Text(tr("完成"))
             }
         },
     )
@@ -592,15 +594,15 @@ private fun SoundWaveform(sound: AlarmSound, selected: Boolean) {
 }
 
 private fun VibrationPattern.chineseLabel(): String = when (this) {
-    VibrationPattern.GENTLE -> "舒缓"
-    VibrationPattern.DOUBLE_PULSE -> "双拍"
-    VibrationPattern.STEADY -> "密集"
+    VibrationPattern.GENTLE -> tr("舒缓")
+    VibrationPattern.DOUBLE_PULSE -> tr("双拍")
+    VibrationPattern.STEADY -> tr("密集")
 }
 
 private fun VibrationIntensity.chineseLabel(): String = when (this) {
-    VibrationIntensity.LIGHT -> "轻"
-    VibrationIntensity.MEDIUM -> "中"
-    VibrationIntensity.STRONG -> "强"
+    VibrationIntensity.LIGHT -> tr("轻")
+    VibrationIntensity.MEDIUM -> tr("中")
+    VibrationIntensity.STRONG -> tr("强")
 }
 
 @Composable
@@ -654,29 +656,29 @@ internal fun EditorCard(
 }
 
 private fun DayOfWeek.shortChineseLabel(): String = when (this) {
-    DayOfWeek.MONDAY -> "一"
-    DayOfWeek.TUESDAY -> "二"
-    DayOfWeek.WEDNESDAY -> "三"
-    DayOfWeek.THURSDAY -> "四"
-    DayOfWeek.FRIDAY -> "五"
-    DayOfWeek.SATURDAY -> "六"
-    DayOfWeek.SUNDAY -> "日"
+    DayOfWeek.MONDAY -> tr("一")
+    DayOfWeek.TUESDAY -> tr("二")
+    DayOfWeek.WEDNESDAY -> tr("三")
+    DayOfWeek.THURSDAY -> tr("四")
+    DayOfWeek.FRIDAY -> tr("五")
+    DayOfWeek.SATURDAY -> tr("六")
+    DayOfWeek.SUNDAY -> tr("日")
 }
 
 internal fun ChallengeType.chineseLabel(): String = when (this) {
-    ChallengeType.SQUAT -> "深蹲"
-    ChallengeType.JUMPING_JACK -> "开合跳"
-    ChallengeType.HANDS_UP -> "双手举高"
-    ChallengeType.VOICE_PHRASE -> "朗读短语"
+    ChallengeType.SQUAT -> tr("深蹲")
+    ChallengeType.JUMPING_JACK -> tr("开合跳")
+    ChallengeType.HANDS_UP -> tr("双手举高")
+    ChallengeType.VOICE_PHRASE -> tr("朗读短语")
 }
 
 private fun ChallengeType.chineseDescription(): String = when (this) {
     ChallengeType.SQUAT,
     ChallengeType.JUMPING_JACK,
     ChallengeType.HANDS_UP,
-    -> "完成指定次数后关闭"
+    -> tr("完成指定次数后关闭")
 
-    ChallengeType.VOICE_PHRASE -> "正确朗读指定短语后关闭"
+    ChallengeType.VOICE_PHRASE -> tr("正确朗读指定短语后关闭")
 }
 
 private fun ChallengeType.challengeIcon(): ImageVector = when (this) {

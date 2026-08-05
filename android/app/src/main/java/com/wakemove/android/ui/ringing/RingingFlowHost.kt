@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.ringing
 
+import com.wakemove.android.i18n.tr
+
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -193,18 +195,18 @@ fun RingingFlowHost(
             permanentlyDenied = prompt.stage == PermissionStage.PERMANENTLY_DENIED,
             fallbackLabel = if (fallbackAvailable) {
                 if (fallbackRoute == RingingRoute.SPEECH) {
-                    "改用语音挑战"
+                    tr("改用语音挑战")
                 } else {
-                    "改用动作挑战"
+                    tr("改用动作挑战")
                 }
             } else {
                 null
             },
             fallbackTarget = if (fallbackAvailable) {
                 if (fallbackRoute == RingingRoute.SPEECH) {
-                    "完整说出语音短句"
+                    tr("完整说出语音短句")
                 } else {
-                    "${session.challengeType.cameraType().localizedName()} ${session.targetCount} 次"
+                    tr("${session.challengeType.cameraType().localizedName()} ${session.targetCount} 次")
                 }
             } else {
                 null
@@ -404,10 +406,10 @@ private fun ChallengeType.cameraType(): ChallengeType =
     if (this == ChallengeType.VOICE_PHRASE) ChallengeType.SQUAT else this
 
 private fun ChallengeType.localizedName(): String = when (this) {
-    ChallengeType.SQUAT -> "深蹲"
-    ChallengeType.JUMPING_JACK -> "开合跳"
-    ChallengeType.HANDS_UP -> "双手举起"
-    ChallengeType.VOICE_PHRASE -> "语音短句"
+    ChallengeType.SQUAT -> tr("深蹲")
+    ChallengeType.JUMPING_JACK -> tr("开合跳")
+    ChallengeType.HANDS_UP -> tr("双手举起")
+    ChallengeType.VOICE_PHRASE -> tr("语音短句")
 }
 
 private fun RingingRoute.healthIssue(): HealthIssue = when (this) {

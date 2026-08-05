@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.alarms
 
+import com.wakemove.android.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -85,7 +87,7 @@ fun AlarmEditorScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(if (state.alarmId == null) "新建闹钟" else "编辑闹钟")
+                    Text(if (state.alarmId == null) tr("新建闹钟") else tr("编辑闹钟"))
                 },
                 navigationIcon = {
                     IconButton(
@@ -94,7 +96,7 @@ fun AlarmEditorScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "返回",
+                            contentDescription = tr("返回"),
                         )
                     }
                 },
@@ -129,9 +131,9 @@ fun AlarmEditorScreen(
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text("保存中…")
+                        Text(tr("保存中…"))
                     } else {
-                        Text("保存闹钟")
+                        Text(tr("保存闹钟"))
                     }
                 }
             }
@@ -155,18 +157,18 @@ fun AlarmEditorScreen(
                 value = state.label,
                 onValueChange = onLabelChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("标签（可选）") },
-                placeholder = { Text("例如：上班、晨跑、早课") },
+                label = { Text(tr("标签（可选）")) },
+                placeholder = { Text(tr("例如：上班、晨跑、早课")) },
                 singleLine = true,
             )
 
-            EditorCard(title = "重复") {
+            EditorCard(title = tr("重复")) {
                 WeekdaySelector(
                     selectedDays = state.selectedDays,
                     onDayToggle = onDayToggle,
                 )
                 Text(
-                    text = if (state.selectedDays.isEmpty()) "仅响一次" else "按所选日期重复",
+                    text = if (state.selectedDays.isEmpty()) tr("仅响一次") else tr("按所选日期重复"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -187,7 +189,7 @@ fun AlarmEditorScreen(
                 onPreviewVibration = vibrationPreview::preview,
             )
 
-            EditorCard(title = "起床挑战") {
+            EditorCard(title = tr("起床挑战")) {
                 ChallengeSelector(
                     selectedChallenge = state.challengeType,
                     onChallengeSelected = onChallengeSelected,
@@ -195,7 +197,7 @@ fun AlarmEditorScreen(
             }
 
             if (state.challengeType != ChallengeType.VOICE_PHRASE) {
-                EditorCard(title = "完成目标") {
+                EditorCard(title = tr("完成目标")) {
                     TargetStepper(
                         count = state.targetCount,
                         onCountChange = onTargetCountChange,
@@ -218,7 +220,7 @@ fun AlarmEditorScreen(
                         .fillMaxWidth()
                         .height(52.dp),
                 ) {
-                    Text("删除闹钟", color = MaterialTheme.colorScheme.error)
+                    Text(tr("删除闹钟"), color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -248,8 +250,8 @@ fun AlarmEditorScreen(
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("确认删除？") },
-            text = { Text("删除后将无法恢复此闹钟。") },
+            title = { Text(tr("确认删除？")) },
+            text = { Text(tr("删除后将无法恢复此闹钟。")) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -258,12 +260,12 @@ fun AlarmEditorScreen(
                     },
                     modifier = Modifier.testTag("confirm_delete"),
                 ) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(tr("删除"), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmation = false }) {
-                    Text("取消")
+                    Text(tr("取消"))
                 }
             },
         )

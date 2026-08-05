@@ -1,11 +1,12 @@
 {
   "schemaVersion": 1,
-  "versionCode": 7,
-  "versionName": "1.5.1",
+  "versionCode": 8,
+  "versionName": "1.6.0",
   "minimumVersionCode": 5,
-  "releaseUrl": "https://github.com/Ykedan/WakeMove/releases/tag/v1.5.1",
-  "downloadUrl": "https://github.com/Ykedan/WakeMove/releases/download/v1.5.1/WakeMove-v1.5.1.apk",
-  "fallbackDownloadUrl": "https://ykedan.github.io/WakeMove/downloads/WakeMove-v1.5.1.apk",
-  "sha256": "d4eff0d32215168e9d93f7c9ce701180c0c2b872b66634621978793bb5d6bd1f",
-  "releaseNotes": "修复部分手机应用内更新一直停在 0% 的问题。\n改为应用直接下载，并优先使用官网镜像，移动网络下也会显示真实进度。\n新增隐私政策、安全说明与可信更新校验信息。"
+  "releaseUrl": "https://github.com/Ykedan/WakeMove/releases/tag/v1.6.0",
+  "downloadUrl": "https://github.com/Ykedan/WakeMove/releases/download/v1.6.0/WakeMove-v1.6.0.apk",
+  "fallbackDownloadUrl": "https://ykedan.github.io/WakeMove/downloads/WakeMove-v1.6.0.apk",
+  "sha256": "22e34f65218c2ac5f83122586ae9357df17f07f27b52e3a463ef81be38caacb3",
+  "releaseNotes": "新增完整英文界面，可在设置中选择跟随系统、简体中文或 English。\n闹钟、响铃、挑战、权限、健康检查、通知与应用更新均支持英文。\n修复切换语言后铃声名称、日期和底部导航未立即更新的问题。",
+  "releaseNotesEn": "Added a complete English interface with Follow system, Simplified Chinese, and English options.\nAlarms, ringing, challenges, permissions, Health Check, notifications, and app updates are now bilingual.\nFixed alarm sound names, dates, and bottom navigation not refreshing immediately after a language change."
 }

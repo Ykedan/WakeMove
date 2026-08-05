@@ -1,5 +1,7 @@
 package com.wakemove.android.update
 
+import com.wakemove.android.i18n.tr
+
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -81,10 +83,10 @@ object AppUpdateNotifications {
         val manager = context.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "应用更新",
+            tr("应用更新"),
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
-            description = "WakeMove 新版本提醒"
+            description = tr("WakeMove 新版本提醒")
         }
         manager.createNotificationChannel(channel)
     }
@@ -108,8 +110,8 @@ object AppUpdateNotifications {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("WakeMove v${info.versionName} 可以更新")
-            .setContentText("点击查看改进内容并安装")
+            .setContentTitle(tr("WakeMove v${info.versionName} 可以更新"))
+            .setContentText(tr("点击查看改进内容并安装"))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
