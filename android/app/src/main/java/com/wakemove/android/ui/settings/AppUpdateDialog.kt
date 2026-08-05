@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.settings
 
+import com.wakemove.android.i18n.tr
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -95,37 +97,37 @@ private fun UpdateDialogHeader(state: AppUpdateUiState) {
         AppUpdatePhase.CHECKING -> {
             icon = Icons.Rounded.CloudDownload
             eyebrow = "CHECKING"
-            title = "正在检查更新"
+            title = tr("正在检查更新")
         }
         AppUpdatePhase.UP_TO_DATE -> {
             icon = Icons.Rounded.CheckCircle
             eyebrow = "UP TO DATE"
-            title = "当前已是最新版本"
+            title = tr("当前已是最新版本")
         }
         AppUpdatePhase.AVAILABLE -> {
             icon = Icons.Rounded.NewReleases
             eyebrow = "NEW RELEASE"
-            title = "WakeMove v${state.info?.versionName} 可以更新"
+            title = tr("WakeMove v${state.info?.versionName} 可以更新")
         }
         AppUpdatePhase.DOWNLOADING -> {
             icon = Icons.Rounded.CloudDownload
             eyebrow = "DOWNLOADING"
-            title = "正在下载 WakeMove v${state.info?.versionName}"
+            title = tr("正在下载 WakeMove v${state.info?.versionName}")
         }
         AppUpdatePhase.READY_TO_INSTALL -> {
             icon = Icons.Rounded.InstallMobile
             eyebrow = "READY"
-            title = "更新已经准备好"
+            title = tr("更新已经准备好")
         }
         AppUpdatePhase.INSTALL_PERMISSION_REQUIRED -> {
             icon = Icons.Rounded.InstallMobile
             eyebrow = "ONE MORE STEP"
-            title = "允许 WakeMove 安装更新"
+            title = tr("允许 WakeMove 安装更新")
         }
         AppUpdatePhase.ERROR -> {
             icon = Icons.Rounded.ErrorOutline
             eyebrow = "TRY AGAIN"
-            title = "这次没有检查成功"
+            title = tr("这次没有检查成功")
         }
         AppUpdatePhase.IDLE -> return
     }
@@ -168,7 +170,7 @@ private fun UpdateDialogBody(state: AppUpdateUiState) {
             VersionTrack(latestVersion = state.info?.versionName.orEmpty())
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "本次更新",
+                text = tr("本次更新"),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -190,40 +192,40 @@ private fun UpdateDialogBody(state: AppUpdateUiState) {
                 )
                 Spacer(Modifier.height(9.dp))
                 Text(
-                    text = "已下载 $progress%",
+                    text = tr("已下载 $progress%"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(9.dp))
-                Text("正在获取安装包大小…")
+                Text(tr("正在获取安装包大小…"))
             }
             Text(
-                text = "可以先返回使用，下载完成后 WakeMove 会提醒你安装。",
+                text = tr("可以先返回使用，下载完成后 WakeMove 会提醒你安装。"),
                 modifier = Modifier.padding(top = 10.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         AppUpdatePhase.READY_TO_INSTALL -> Text(
-            text = "下一步会打开 Android 系统安装界面。更新会覆盖旧版本，闹钟和设置会保留。",
+            text = tr("下一步会打开 Android 系统安装界面。更新会覆盖旧版本，闹钟和设置会保留。"),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         AppUpdatePhase.INSTALL_PERMISSION_REQUIRED -> Text(
-            text = state.message ?: "在系统设置中允许安装后，返回 WakeMove 继续。",
+            text = state.message ?: tr("在系统设置中允许安装后，返回 WakeMove 继续。"),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         AppUpdatePhase.ERROR -> Text(
-            text = state.message ?: "请检查网络后重试。",
+            text = state.message ?: tr("请检查网络后重试。"),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         AppUpdatePhase.UP_TO_DATE -> Text(
-            text = "你正在使用 WakeMove v${BuildConfig.VERSION_NAME}。",
+            text = tr("你正在使用 WakeMove v${BuildConfig.VERSION_NAME}。"),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         AppUpdatePhase.CHECKING -> Text(
-            text = "正在连接版本服务，通常只需要几秒。",
+            text = tr("正在连接版本服务，通常只需要几秒。"),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         AppUpdatePhase.IDLE -> Unit
@@ -243,7 +245,7 @@ private fun VersionTrack(latestVersion: String) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text("当前版本", color = WakeMoveSky, style = MaterialTheme.typography.bodySmall)
+                Text(tr("当前版本"), color = WakeMoveSky, style = MaterialTheme.typography.bodySmall)
                 Text(
                     "v${BuildConfig.VERSION_NAME}",
                     color = Color.White,
@@ -259,7 +261,7 @@ private fun VersionTrack(latestVersion: String) {
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.End,
             ) {
-                Text("可用版本", color = WakeMoveSky, style = MaterialTheme.typography.bodySmall)
+                Text(tr("可用版本"), color = WakeMoveSky, style = MaterialTheme.typography.bodySmall)
                 Text("v$latestVersion", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
@@ -281,14 +283,14 @@ private fun ColumnScope.UpdateDialogActions(
                 onClick = onDownload,
                 modifier = Modifier.fillMaxWidth().testTag("download_update"),
             ) {
-                Text("下载并更新")
+                Text(tr("下载并更新"))
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                TextButton(onClick = onIgnoreVersion) { Text("忽略此版本") }
-                TextButton(onClick = onDismiss) { Text("稍后提醒") }
+                TextButton(onClick = onIgnoreVersion) { Text(tr("忽略此版本")) }
+                TextButton(onClick = onDismiss) { Text(tr("稍后提醒")) }
             }
         }
         AppUpdatePhase.READY_TO_INSTALL,
@@ -298,32 +300,32 @@ private fun ColumnScope.UpdateDialogActions(
                 onClick = onInstall,
                 modifier = Modifier.fillMaxWidth().testTag("install_update"),
             ) {
-                Text(if (state.phase == AppUpdatePhase.READY_TO_INSTALL) "安装更新" else "再次尝试")
+                Text(if (state.phase == AppUpdatePhase.READY_TO_INSTALL) tr("安装更新") else tr("再次尝试"))
             }
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                Text("稍后")
+                Text(tr("稍后"))
             }
         }
         AppUpdatePhase.ERROR -> {
-            Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("重新检查") }
+            Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text(tr("重新检查")) }
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                Text("关闭")
+                Text(tr("关闭"))
             }
         }
         AppUpdatePhase.DOWNLOADING -> Button(
             onClick = onDismiss,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("在后台下载")
+            Text(tr("在后台下载"))
         }
         AppUpdatePhase.CHECKING -> TextButton(
             onClick = onDismiss,
             modifier = Modifier.align(Alignment.End),
-        ) { Text("关闭") }
+        ) { Text(tr("关闭")) }
         AppUpdatePhase.UP_TO_DATE -> Button(
             onClick = onDismiss,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("知道了") }
+        ) { Text(tr("知道了")) }
         AppUpdatePhase.IDLE -> Unit
     }
 }

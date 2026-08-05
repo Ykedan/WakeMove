@@ -1,5 +1,7 @@
 package com.wakemove.android.ringing
 
+import com.wakemove.android.i18n.tr
+
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -26,11 +28,14 @@ interface AlarmAudioPlayer {
 
 data class AlarmSound(
     val id: String,
-    val name: String,
-    val description: String,
+    private val nameKey: String,
+    private val descriptionKey: String,
     @param:RawRes val resourceId: Int,
     val waveform: List<Float>,
-)
+) {
+    val name: String get() = tr(nameKey)
+    val description: String get() = tr(descriptionKey)
+}
 
 object AlarmSoundCatalog {
     const val DEFAULT_ID = "dawn_breeze"
@@ -38,29 +43,29 @@ object AlarmSoundCatalog {
     val sounds = listOf(
         AlarmSound(
             id = DEFAULT_ID,
-            name = "晨风",
-            description = "柔和木琴与暖色和弦",
+            nameKey = "晨风",
+            descriptionKey = "柔和木琴与暖色和弦",
             resourceId = R.raw.dawn_breeze,
             waveform = listOf(0.28f, 0.58f, 0.84f, 0.46f, 0.72f, 0.38f),
         ),
         AlarmSound(
             id = "sunrise_chimes",
-            name = "朝露",
-            description = "清亮铃音，缓慢渐醒",
+            nameKey = "朝露",
+            descriptionKey = "清亮铃音，缓慢渐醒",
             resourceId = R.raw.sunrise_chimes,
             waveform = listOf(0.42f, 0.88f, 0.34f, 0.68f, 0.92f, 0.52f),
         ),
         AlarmSound(
             id = "quiet_harbor",
-            name = "静港",
-            description = "低柔音垫与舒缓钟声",
+            nameKey = "静港",
+            descriptionKey = "低柔音垫与舒缓钟声",
             resourceId = R.raw.quiet_harbor,
             waveform = listOf(0.62f, 0.38f, 0.54f, 0.30f, 0.48f, 0.26f),
         ),
         AlarmSound(
             id = "forest_light",
-            name = "林间光",
-            description = "轻快音符与自然留白",
+            nameKey = "林间光",
+            descriptionKey = "轻快音符与自然留白",
             resourceId = R.raw.forest_light,
             waveform = listOf(0.32f, 0.74f, 0.48f, 0.90f, 0.44f, 0.66f),
         ),

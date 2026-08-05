@@ -1,5 +1,7 @@
 package com.wakemove.android.ringing
 
+import com.wakemove.android.i18n.tr
+
 import com.wakemove.android.domain.Alarm
 import com.wakemove.android.domain.AlarmEvent
 import com.wakemove.android.domain.AlarmEventResult
@@ -169,7 +171,7 @@ class RingingSessionController(
             mutableState.value = stateFor(
                 alarm = alarm,
                 session = restored,
-                recoverableError = "贪睡注册失败，闹钟会继续响铃，请重试",
+                recoverableError = tr("贪睡注册失败，闹钟会继续响铃，请重试"),
             )
             return false
         }

@@ -1,6 +1,7 @@
 package com.wakemove.android.ui.settings
 
 import android.content.Context
+import com.wakemove.android.i18n.WakeMoveLocale
 
 enum class ThemePreference {
     FOLLOW_SYSTEM,
@@ -11,6 +12,7 @@ enum class ThemePreference {
 enum class LanguagePreference {
     FOLLOW_SYSTEM,
     SIMPLIFIED_CHINESE,
+    ENGLISH,
 }
 
 data class WakeMoveSettings(
@@ -41,6 +43,7 @@ class WakeMovePreferences(context: Context) {
             .putBoolean(KEY_DYNAMIC_COLOR, settings.useDynamicColor)
             .putString(KEY_LANGUAGE, settings.language.name)
             .apply()
+        WakeMoveLocale.select(settings.language)
     }
 
     private companion object {

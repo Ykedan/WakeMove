@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.ringing
 
+import com.wakemove.android.i18n.tr
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -113,13 +115,13 @@ fun RingingScreen(
                             .padding(4.dp),
                     )
                     Text(
-                        text = "正在响铃",
+                        text = tr("正在响铃"),
                         color = Color.White,
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
                 Text(
-                    text = "剩余贪睡 ${state.remainingSnoozes} 次",
+                    text = tr("剩余贪睡 ${state.remainingSnoozes} 次"),
                     color = WakeMoveSky,
                     style = MaterialTheme.typography.labelLarge,
                 )
@@ -140,12 +142,12 @@ fun RingingScreen(
                     letterSpacing = (-2).sp,
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.semantics {
-                        contentDescription = "闹钟时间 $formattedTime"
+                        contentDescription = tr("闹钟时间 $formattedTime")
                     },
                 )
             }
             Text(
-                text = alarm.label.ifBlank { "WakeMove 闹钟" },
+                text = alarm.label.ifBlank { tr("WakeMove 闹钟") },
                 modifier = Modifier.padding(bottom = 18.dp),
                 color = WakeMoveSky,
                 style = MaterialTheme.typography.titleMedium,
@@ -161,7 +163,7 @@ fun RingingScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "起床任务",
+                        text = tr("起床任务"),
                         color = WakeMoveDawn,
                         style = MaterialTheme.typography.labelLarge,
                     )
@@ -171,7 +173,7 @@ fun RingingScreen(
                         style = MaterialTheme.typography.headlineMedium,
                     )
                     Text(
-                        text = "完成目标 ${session.targetCount}，闹钟才会停止",
+                        text = tr("完成目标 ${session.targetCount}，闹钟才会停止"),
                         color = WakeMoveSky.copy(alpha = 0.78f),
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -200,7 +202,7 @@ fun RingingScreen(
                 ),
                 shape = MaterialTheme.shapes.large,
             ) {
-                Text("开始挑战", fontWeight = FontWeight.Bold)
+                Text(tr("开始挑战"), fontWeight = FontWeight.Bold)
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDescription = null,
@@ -225,7 +227,7 @@ fun RingingScreen(
                 ) {
                     Icon(Icons.Rounded.Bedtime, contentDescription = null)
                     Text(
-                        text = "贪睡一次（还剩 ${state.remainingSnoozes} 次）",
+                        text = tr("贪睡一次（还剩 ${state.remainingSnoozes} 次）"),
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }
@@ -241,7 +243,7 @@ fun RingingScreen(
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(
-                            "相机和麦克风均不可用，请先修复权限或使用紧急停止",
+                            tr("相机和麦克风均不可用，请先修复权限或使用紧急停止"),
                             color = Color(0xFFFFC1BC),
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -255,7 +257,7 @@ fun RingingScreen(
                                 contentColor = Color.White,
                             ),
                         ) {
-                            Text("修复相机和麦克风权限")
+                            Text(tr("修复相机和麦克风权限"))
                         }
                     }
                 }
@@ -304,16 +306,16 @@ private fun EmergencyHoldButton(
                 .border(1.dp, Color.White.copy(alpha = 0.16f), MaterialTheme.shapes.medium)
                 .testTag("emergency_hold")
                 .semantics {
-                    contentDescription = "连续按住十秒紧急停止"
+                    contentDescription = tr("连续按住十秒紧急停止")
                     role = Role.Button
                     stateDescription = if (holding) {
-                        "倒计时 ${(progress * 10).toInt()} 秒，激活可取消"
+                        tr("倒计时 ${(progress * 10).toInt()} 秒，激活可取消")
                     } else {
-                        "未开始，激活后需要等待十秒"
+                        tr("未开始，激活后需要等待十秒")
                     }
                     liveRegion = LiveRegionMode.Polite
                     onClick(
-                        label = if (holding) "取消十秒倒计时" else "开始十秒倒计时",
+                        label = if (holding) tr("取消十秒倒计时") else tr("开始十秒倒计时"),
                     ) {
                         accessibilityHolding = !accessibilityHolding
                         true
@@ -340,7 +342,7 @@ private fun EmergencyHoldButton(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "按住 10 秒紧急停止",
+                text = tr("按住 10 秒紧急停止"),
                 color = Color.White.copy(alpha = 0.72f),
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -358,10 +360,10 @@ private fun EmergencyHoldButton(
 }
 
 private fun challengeLabel(type: com.wakemove.android.domain.ChallengeType): String = when (type) {
-    com.wakemove.android.domain.ChallengeType.SQUAT -> "深蹲"
-    com.wakemove.android.domain.ChallengeType.JUMPING_JACK -> "开合跳"
-    com.wakemove.android.domain.ChallengeType.HANDS_UP -> "双手举起"
-    com.wakemove.android.domain.ChallengeType.VOICE_PHRASE -> "语音短句"
+    com.wakemove.android.domain.ChallengeType.SQUAT -> tr("深蹲")
+    com.wakemove.android.domain.ChallengeType.JUMPING_JACK -> tr("开合跳")
+    com.wakemove.android.domain.ChallengeType.HANDS_UP -> tr("双手举起")
+    com.wakemove.android.domain.ChallengeType.VOICE_PHRASE -> tr("语音短句")
 }
 
 private const val EMERGENCY_HOLD_STEPS = 100

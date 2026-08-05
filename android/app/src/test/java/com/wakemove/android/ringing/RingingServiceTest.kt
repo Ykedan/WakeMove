@@ -13,8 +13,10 @@ import com.wakemove.android.domain.ChallengeType
 import com.wakemove.android.domain.PendingAlarmSchedule
 import com.wakemove.android.domain.RingingSession
 import com.wakemove.android.domain.SessionStatus
+import com.wakemove.android.i18n.WakeMoveLocale
 import com.wakemove.android.scheduling.AlarmReceiver
 import com.wakemove.android.scheduling.AlarmScheduler
+import com.wakemove.android.ui.settings.LanguagePreference
 import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Instant
@@ -43,6 +45,7 @@ class RingingServiceTest {
 
     @Before
     fun setUp() {
+        WakeMoveLocale.select(LanguagePreference.SIMPLIFIED_CHINESE)
         application = org.robolectric.RuntimeEnvironment.getApplication()
             as RingingServiceTestApplication
         application.reset()

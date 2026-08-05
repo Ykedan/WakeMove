@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.ringing
 
+import com.wakemove.android.i18n.tr
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -57,14 +59,14 @@ fun CameraChallengeScreen(
                 .fillMaxWidth()
                 .weight(1f)
                 .background(Color.Black)
-                .semantics { contentDescription = "实时相机画面" },
+                .semantics { contentDescription = tr("实时相机画面") },
         ) {
             cameraPreview()
             Canvas(
                 Modifier
                     .fillMaxSize()
                     .testTag("landmark_overlay")
-                    .semantics { contentDescription = "实时人体关键点轮廓" },
+                    .semantics { contentDescription = tr("实时人体关键点轮廓") },
             ) {
                 landmarks.forEach { (x, y) ->
                     drawCircle(
@@ -85,7 +87,7 @@ fun CameraChallengeScreen(
                 shape = RoundedCornerShape(18.dp),
             ) {
                 Text(
-                    text = "请在光线充足处识别，并让全身进入画面",
+                    text = tr("请在光线充足处识别，并让全身进入画面"),
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
                     fontWeight = FontWeight.Medium,
                 )
@@ -122,9 +124,9 @@ fun CameraChallengeScreen(
             ) {
                 Text(
                     if (progress.fallbackAvailable) {
-                        "改用语音挑战"
+                        tr("改用语音挑战")
                     } else {
-                        "60 秒后可改用语音"
+                        tr("60 秒后可改用语音")
                     },
                 )
             }
@@ -160,7 +162,7 @@ internal fun AlarmChallengeHeader(
                         .padding(4.dp),
                 )
                 Text(
-                    "正在响铃",
+                    tr("正在响铃"),
                     color = Color.White,
                     style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
                 )
@@ -180,7 +182,7 @@ internal fun AlarmChallengeHeader(
             }
         }
         Text(
-            "剩余贪睡 $remainingSnoozes 次",
+            tr("剩余贪睡 $remainingSnoozes 次"),
             color = WakeMoveSky,
             style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
         )
@@ -188,14 +190,14 @@ internal fun AlarmChallengeHeader(
 }
 
 private fun guidanceText(guidance: CameraGuidance): String = when (guidance) {
-    CameraGuidance.NONE -> "保持动作稳定，系统会自动计数"
-    CameraGuidance.LOW_LIGHT -> "当前光线太暗，请打开灯并面向光源"
-    CameraGuidance.NO_PERSON -> "请让全身进入画面"
+    CameraGuidance.NONE -> tr("保持动作稳定，系统会自动计数")
+    CameraGuidance.LOW_LIGHT -> tr("当前光线太暗，请打开灯并面向光源")
+    CameraGuidance.NO_PERSON -> tr("请让全身进入画面")
 }
 
 private fun challengeName(type: ChallengeType): String = when (type) {
-    ChallengeType.SQUAT -> "深蹲"
-    ChallengeType.JUMPING_JACK -> "开合跳"
-    ChallengeType.HANDS_UP -> "双手举起"
-    ChallengeType.VOICE_PHRASE -> "语音短句"
+    ChallengeType.SQUAT -> tr("深蹲")
+    ChallengeType.JUMPING_JACK -> tr("开合跳")
+    ChallengeType.HANDS_UP -> tr("双手举起")
+    ChallengeType.VOICE_PHRASE -> tr("语音短句")
 }

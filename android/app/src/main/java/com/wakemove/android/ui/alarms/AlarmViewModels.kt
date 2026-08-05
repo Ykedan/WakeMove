@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.alarms
 
+import com.wakemove.android.i18n.tr
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wakemove.android.domain.Alarm
@@ -49,7 +51,7 @@ data class AlarmEditorUiState(
 
     val healthMessage: String?
         get() = when {
-            !health.canScheduleAlarms -> "请先完成健康检查"
+            !health.canScheduleAlarms -> tr("请先完成健康检查")
             else -> null
         }
 
@@ -79,16 +81,16 @@ data class AlarmEditorUiState(
             val now = ZonedDateTime.ofInstant(validationInstant, validationZone)
             val next = nextOccurrence
             val dayLabel = when (next.toLocalDate()) {
-                now.toLocalDate() -> "今天"
-                now.toLocalDate().plusDays(1) -> "明天"
-                else -> next.format(DateTimeFormatter.ofPattern("M月d日"))
+                now.toLocalDate() -> tr("今天")
+                now.toLocalDate().plusDays(1) -> tr("明天")
+                else -> next.format(DateTimeFormatter.ofPattern(tr("M月d日")))
             }
             val minutes = Duration.between(now, next).toMinutes().coerceAtLeast(1)
             val relative = when {
-                minutes < 60 -> "约 $minutes 分钟后"
-                else -> "约 ${minutes / 60} 小时后"
+                minutes < 60 -> tr("约 $minutes 分钟后")
+                else -> tr("约 ${minutes / 60} 小时后")
             }
-            return "下一次响铃：$dayLabel ${next.format(TIME_FORMAT)}（$relative）"
+            return tr("下一次响铃：$dayLabel ${next.format(TIME_FORMAT)}（$relative）")
         }
 
     val canSave: Boolean
@@ -150,7 +152,7 @@ class AlarmListViewModel(
                 _operationState.value = AlarmOperationUiState()
             } catch (error: Exception) {
                 _operationState.value = AlarmOperationUiState(
-                    errorMessage = error.message ?: "操作失败，请重试",
+                    errorMessage = error.message ?: tr("操作失败，请重试"),
                 )
             }
         }
@@ -162,7 +164,7 @@ class AlarmListViewModel(
         if (enabled) {
             val currentHealth = healthProvider()
             if (!AlarmEditorUiState.fromAlarm(previous, currentHealth).canSave) {
-                throw AlarmMutationException("健康状态已变化，请重新检查")
+                throw AlarmMutationException(tr("健康状态已变化，请重新检查"))
             }
         }
         val updated = previous.copy(
@@ -180,7 +182,7 @@ class AlarmListViewModel(
 
     private suspend fun requireAlarmIsMutable(alarmId: String) {
         if (repository.activeSession()?.alarmId == alarmId) {
-            throw AlarmMutationException("闹钟正在响铃或贪睡中，完成挑战后才能修改")
+            throw AlarmMutationException(tr("闹钟正在响铃或贪睡中，完成挑战后才能修改"))
         }
     }
 }
@@ -234,7 +236,7 @@ class AlarmEditorViewModel(
                 onSuccess(saved)
             } catch (error: Exception) {
                 _operationState.value = AlarmOperationUiState(
-                    errorMessage = error.message ?: "保存失败，请重试",
+                    errorMessage = error.message ?: tr("保存失败，请重试"),
                 )
             }
         }
@@ -250,7 +252,7 @@ class AlarmEditorViewModel(
                 onSuccess()
             } catch (error: Exception) {
                 _operationState.value = AlarmOperationUiState(
-                    errorMessage = error.message ?: "删除失败，请重试",
+                    errorMessage = error.message ?: tr("删除失败，请重试"),
                 )
             }
         }
@@ -268,7 +270,7 @@ class AlarmEditorViewModel(
         if (!currentState.canSave) {
             throw AlarmMutationException(
                 currentState.healthMessage
-                    ?: "闹钟设置无效",
+                    ?: tr("闹钟设置无效"),
             )
         }
         val now = instantProvider()
@@ -338,7 +340,7 @@ class AlarmEditorViewModel(
                 com.wakemove.android.domain.SessionStatus.SNOOZED,
             )
         ) {
-            throw AlarmMutationException("闹钟正在响铃或贪睡中，完成挑战后才能修改")
+            throw AlarmMutationException(tr("闹钟正在响铃或贪睡中，完成挑战后才能修改"))
         }
     }
 }
@@ -381,7 +383,7 @@ private suspend fun persistAndReconcile(
             schedulingError.addSuppressed(reconciliationError)
         }
         throw AlarmMutationException(
-            "保存失败，闹钟状态已恢复",
+            tr("保存失败，闹钟状态已恢复"),
             schedulingError,
         )
     }

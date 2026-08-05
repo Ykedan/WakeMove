@@ -1,6 +1,7 @@
 <h1 align="center">WakeMove · 醒动</h1>
 
 <p align="center">
+  An Android alarm clock that makes you complete a movement or offline voice challenge before the alarm stops.<br>
   一款必须完成动作或离线语音挑战，才能结束响铃的 Android 闹钟。
 </p>
 
@@ -8,95 +9,68 @@
   <img alt="Android 10+" src="https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white">
   <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-2.3.21-7F52FF?logo=kotlin&logoColor=white">
   <img alt="Jetpack Compose" src="https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white">
+  <img alt="Languages" src="https://img.shields.io/badge/UI-中文%20%7C%20English-3B82F6">
   <img alt="Status" src="https://img.shields.io/badge/status-beta-FF7458">
 </p>
 
 <p align="center">
-  <a href="https://ykedan.github.io/WakeMove/">访问 WakeMove 醒动官网</a>
+  <a href="https://ykedan.github.io/WakeMove/">Website / 官网</a>
   ·
-  <a href="https://github.com/Ykedan/WakeMove/releases/latest">下载正式版 APK</a>
+  <a href="https://github.com/Ykedan/WakeMove/releases/latest">Download APK / 下载 APK</a>
+  ·
+  <a href="https://ykedan.github.io/WakeMove/privacy">Privacy / 隐私政策</a>
+  ·
+  <a href="https://ykedan.github.io/WakeMove/security">Security / 安全说明</a>
 </p>
 
-## 为什么做醒动
+English | [简体中文](#简体中文)
 
-普通闹钟最容易在半睡半醒时被顺手关掉。
+## English
 
-WakeMove 把“关闭闹钟”换成一个短挑战：做几次动作，或者完整说出一句话。
-只有真正清醒并完成目标，响铃才会结束。
+### Why WakeMove
 
-项目坚持本地优先：闹钟、历史记录、相机画面和麦克风音频都留在设备上，
-动作与语音识别不依赖云端服务。
+It is easy to dismiss a normal alarm while you are still half asleep. WakeMove replaces that single swipe with a short wake-up challenge: complete a few movements or read a phrase aloud. The alarm stops only after you finish the goal.
 
-## 主要功能
+WakeMove is local-first. Alarm data and history stay on the device. Camera frames are processed locally by MediaPipe, and voice challenges run through the bundled offline Vosk model. Camera frames and recordings are not saved or uploaded.
 
-- 创建、编辑、启用和删除一次性或每周重复闹钟
-- 精确闹钟调度、锁屏全屏响铃、循环声音和振动
-- 深蹲、开合跳、双手举高三种动作挑战
-- Vosk 简体中文离线语音挑战
-- CameraX + MediaPipe 本地人体关键点识别
-- 最多 3 次贪睡，并可从闹钟卡片随时“立即挑战”
-- 4 段内置舒缓铃声，支持试听
-- 3 种震动节奏和 3 档震动力度
-- 响铃历史、权限与系统能力健康检查
-- 浅色、深色、跟随系统与 Android 12+ 动态主题色
-- 健康检查收纳到设置页，减少主导航干扰
-- 动作挑战提供常驻光线与全身入镜提示
-- 启动与每日后台检查新版，支持应用内下载进度和系统安装引导
-- 下载完成后校验 APK 的 SHA-256，再交给 Android 安装器
-- 按住 10 秒的紧急停止通道
-- 首页问候和副标题随早晨、中午、下午、晚上自动变化
+### Features
 
-## 界面设计
+- One-time and weekly repeating alarms with exact scheduling
+- Full-screen lock-screen alarm, looping audio, and vibration
+- Squat, jumping-jack, hands-up, and offline voice challenges
+- CameraX + MediaPipe on-device body landmark detection
+- Bundled Vosk offline speech recognition
+- Up to three snoozes, followed by an optional “Start challenge now” action
+- Four original calming alarm sounds with previews
+- Three vibration patterns and three intensity levels
+- Alarm history and a system capability Health Check
+- Light, dark, follow-system, and Android 12+ dynamic color themes
+- Complete Simplified Chinese and English interfaces
+- In-app update checks, real download progress, SHA-256 verification, and Android installer guidance
+- A deliberate 10-second emergency-stop gesture
 
-WakeMove 使用名为“蓝调破晓”的视觉系统：
+### Tech stack
 
-- 雾白背景承载日常设置与管理
-- 深夜蓝用于下一次闹钟和响铃等核心场景
-- 珊瑚色只强调必须立即执行的唤醒动作
-- 原生 Compose 绘制的“唤醒轨道”作为品牌图形
-
-详细设计说明见 [UI-DESIGN-2026-07-30.md](docs/UI-DESIGN-2026-07-30.md)。
-
-## 技术栈
-
-- Kotlin
-- Jetpack Compose + Material 3
+- Kotlin, Jetpack Compose, Material 3
 - Room
-- AlarmManager + Foreground Service
-- CameraX
-- MediaPipe Tasks Vision
+- AlarmManager and foreground services
+- CameraX and MediaPipe Tasks Vision
 - Vosk Android
-- JUnit、Robolectric、Compose UI Test
+- JUnit, Robolectric, and Compose UI Test
 
-## 项目结构
+### Project structure
 
 ```text
 WakeMove/
-├─ android/                         Android 应用
-│  └─ app/src/main/java/com/wakemove/android/
-│     ├─ challenge/                 动作与离线语音识别
-│     ├─ data/                      Room 数据与仓库
-│     ├─ domain/                    闹钟模型和业务规则
-│     ├─ health/                    权限与系统能力检查
-│     ├─ ringing/                   响铃服务、音频和会话
-│     ├─ scheduling/                精确闹钟调度与恢复
-│     ├─ ui/                        Compose 界面
-│     └─ update/                    版本检查、下载、校验和后台提醒
-├─ website/                         WakeMove 产品官网
-├─ shared/                          跨端共享内容
-└─ docs/                            设计与开发文档
+├─ android/     Android application
+├─ website/     Product website
+├─ shared/      Shared content
+└─ docs/        Design and development documentation
 ```
 
-## 本地运行
+### Build locally
 
-### 环境要求
-
-- Android Studio
-- JDK 17
-- Android SDK 37
-- Android 10（API 29）或更高版本的设备/模拟器
-
-### 构建 Debug APK
+Requirements: Android Studio, JDK 17, Android SDK 37, and an Android 10 (API 29) or newer device/emulator.
 
 ```powershell
 git clone https://github.com/Ykedan/WakeMove.git
@@ -104,58 +78,109 @@ cd WakeMove\android
 .\gradlew.bat assembleDebug
 ```
 
-构建产物：
+The debug APK is generated at `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-```text
-android/app/build/outputs/apk/debug/app-debug.apk
-```
+Release builds require your own local signing configuration. Keystores and passwords are never committed to this repository.
 
-也可以直接使用 Android Studio 打开 `android` 目录并运行 `app`。
-
-> Release 构建需要自行准备本地签名配置。签名文件和密码不会提交到仓库。
-
-## 测试
+### Tests
 
 ```powershell
 cd android
 .\gradlew.bat testDebugUnitTest lintDebug
 ```
 
-需要已启动 Android 模拟器或已连接真机时：
+With an emulator or device connected:
 
 ```powershell
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-当前版本已通过：
+### Download
 
-- 169 项 JVM 测试
-- 64 项 Android 模拟器测试
-- Android lint：0 个错误
+Download the latest officially signed beta APK from [GitHub Releases](https://github.com/Ykedan/WakeMove/releases/latest). WakeMove supports Android 10 and later.
 
-## 下载体验
+WakeMove is currently in public beta and has not yet been published to an app store. Please report reproducible issues with the device model, Android version, and relevant screenshots in [Issues](https://github.com/Ykedan/WakeMove/issues).
 
-最新正式测试版可从
-[GitHub Releases](https://github.com/Ykedan/WakeMove/releases/latest) 下载：
+---
+
+## 简体中文
+
+### 为什么做醒动
+
+普通闹钟最容易在半睡半醒时被顺手关掉。WakeMove 把“关闭闹钟”换成一个短挑战：完成几次动作，或者完整说出一句话。只有真正清醒并完成目标，响铃才会结束。
+
+WakeMove 坚持本地优先。闹钟与历史数据保存在设备上；相机画面由 MediaPipe 在本机处理；语音挑战使用内置 Vosk 离线模型。相机画面与录音不会被保存或上传。
+
+### 主要功能
+
+- 一次性与每周重复闹钟，支持精确调度
+- 锁屏全屏响铃、循环铃声和震动
+- 深蹲、开合跳、双手举高和离线语音挑战
+- CameraX + MediaPipe 本地人体关键点识别
+- 内置 Vosk 离线语音识别
+- 最多 3 次贪睡，并可随时选择“立即挑战”
+- 4 段原创舒缓铃声，支持试听
+- 3 种震动节奏和 3 档震动力度
+- 响铃历史与系统能力健康检查
+- 浅色、深色、跟随系统和 Android 12+ 动态主题色
+- 完整的简体中文与英文界面
+- 应用内检查更新、真实下载进度、SHA-256 校验和系统安装引导
+- 按住 10 秒的紧急停止通道
+
+### 技术栈
+
+- Kotlin、Jetpack Compose、Material 3
+- Room
+- AlarmManager 与前台服务
+- CameraX 与 MediaPipe Tasks Vision
+- Vosk Android
+- JUnit、Robolectric、Compose UI Test
+
+### 项目结构
 
 ```text
-WakeMove-v1.5.1.apk
+WakeMove/
+├─ android/     Android 应用
+├─ website/     产品官网
+├─ shared/      跨端共享内容
+└─ docs/        设计与开发文档
 ```
 
-- 支持 Android 10（API 29）及以上版本
-- APK SHA-256：
-  `D4EFF0D32215168E9D93F7C9CE701180C0C2B872B66634621978793BB5D6BD1F`
-- 此版本使用 WakeMove 正式签名；如果设备装过开发签名测试版，需要先卸载旧版
+### 本地构建
 
-## 当前状态
+需要 Android Studio、JDK 17、Android SDK 37，以及 Android 10（API 29）或更高版本的设备/模拟器。
 
-WakeMove 目前处于公开测试阶段，尚未上架应用商店。GitHub Release 提供的是
-正式签名测试包，现阶段重点是继续验证不同品牌 Android 手机上的锁屏响铃、后台调度
-和权限兼容性。
+```powershell
+git clone https://github.com/Ykedan/WakeMove.git
+cd WakeMove\android
+.\gradlew.bat assembleDebug
+```
 
-欢迎通过 [Issues](https://github.com/Ykedan/WakeMove/issues) 提交复现步骤、设备型号、
-Android 版本和相关截图。
+Debug APK 位于 `android/app/build/outputs/apk/debug/app-debug.apk`。
 
-## 授权说明
+Release 构建需要自行准备本地签名配置，密钥文件和密码不会提交到仓库。
 
-本项目暂未选择开源许可证。在正式补充许可证前，代码及素材保留全部权利。
+### 测试
+
+```powershell
+cd android
+.\gradlew.bat testDebugUnitTest lintDebug
+```
+
+连接真机或启动模拟器后，可运行：
+
+```powershell
+.\gradlew.bat connectedDebugAndroidTest
+```
+
+### 下载体验
+
+从 [GitHub Releases](https://github.com/Ykedan/WakeMove/releases/latest) 下载最新正式签名测试版。WakeMove 支持 Android 10 及以上版本。
+
+WakeMove 目前处于公开测试阶段，尚未上架应用商店。欢迎在 [Issues](https://github.com/Ykedan/WakeMove/issues) 中提供复现步骤、设备型号、Android 版本和相关截图。
+
+## License / 授权说明
+
+No open-source license has been selected yet. All rights are reserved until a license is added.
+
+本项目暂未选择开源许可证。在正式补充许可证前，代码与素材保留全部权利。

@@ -1,5 +1,7 @@
 package com.wakemove.android.ringing
 
+import com.wakemove.android.i18n.tr
+
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
@@ -244,8 +246,8 @@ class RingingService : Service() {
     private fun startForegroundImmediately(alarmId: String?, sessionId: String?) {
         val builder = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("WakeMove 正在响铃")
-            .setContentText("完成起床挑战后才能关闭")
+            .setContentTitle(tr("WakeMove 正在响铃"))
+            .setContentText(tr("完成起床挑战后才能关闭"))
             .setCategory(Notification.CATEGORY_ALARM)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)

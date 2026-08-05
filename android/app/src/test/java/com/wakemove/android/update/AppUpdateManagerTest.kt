@@ -3,6 +3,8 @@ package com.wakemove.android.update
 import android.content.Context
 import android.os.Looper
 import com.sun.net.httpserver.HttpServer
+import com.wakemove.android.i18n.WakeMoveLocale
+import com.wakemove.android.ui.settings.LanguagePreference
 import java.net.InetSocketAddress
 import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineScope
@@ -38,6 +40,7 @@ class AppUpdateManagerTest {
 
     @Before
     fun clearPreferences() {
+        WakeMoveLocale.select(LanguagePreference.SIMPLIFIED_CHINESE)
         context.getSharedPreferences(AppUpdateManager.PREFERENCES_NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()

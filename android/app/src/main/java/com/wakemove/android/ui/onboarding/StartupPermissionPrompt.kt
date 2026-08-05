@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.onboarding
 
+import com.wakemove.android.i18n.tr
+
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -110,9 +112,9 @@ fun StartupPermissionPrompt(
                 }
                 Text(
                     text = if (authorizationStarted) {
-                        "正在完成权限设置"
+                        tr("正在完成权限设置")
                     } else {
-                        "先让闹钟准时出现"
+                        tr("先让闹钟准时出现")
                     },
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
@@ -129,31 +131,31 @@ fun StartupPermissionPrompt(
             ) {
                 if (authorizationStarted) {
                     Text(
-                        text = "请在系统页面完成当前设置，然后返回 WakeMove。",
+                        text = tr("请在系统页面完成当前设置，然后返回 WakeMove。"),
                         fontWeight = FontWeight.SemiBold,
                     )
                 } else {
                     Text(
-                        text = "只需要一次设置，之后 WakeMove 才能在锁屏时准时叫醒你。",
+                        text = tr("只需要一次设置，之后 WakeMove 才能在锁屏时准时叫醒你。"),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     PermissionStep(
                         icon = Icons.Rounded.NotificationsActive,
-                        title = "通知与全屏响铃",
-                        description = "到点立即出现，不错过闹钟",
+                        title = tr("通知与全屏响铃"),
+                        description = tr("到点立即出现，不错过闹钟"),
                     )
                     PermissionStep(
                         icon = Icons.Rounded.CameraAlt,
-                        title = "相机",
-                        description = "只用于本机动作识别",
+                        title = tr("相机"),
+                        description = tr("只用于本机动作识别"),
                     )
                     PermissionStep(
                         icon = Icons.Rounded.Mic,
-                        title = "麦克风",
-                        description = "只用于本机离线语音挑战",
+                        title = tr("麦克风"),
+                        description = tr("只用于本机离线语音挑战"),
                     )
                     Text(
-                        text = "暂时不同意也可以继续，之后可在“健康检查”中补开。",
+                        text = tr("暂时不同意也可以继续，之后可在“健康检查”中补开。"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -179,13 +181,13 @@ fun StartupPermissionPrompt(
                     contentColor = Color.White,
                 ),
             ) {
-                Text(if (authorizationStarted) "请完成系统设置" else "开始授权")
+                Text(if (authorizationStarted) tr("请完成系统设置") else tr("开始授权"))
             }
         },
         dismissButton = {
             if (!authorizationStarted) {
                 TextButton(onClick = onFinished) {
-                    Text("以后再说")
+                    Text(tr("以后再说"))
                 }
             }
         },

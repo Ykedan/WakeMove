@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.onboarding
 
+import com.wakemove.android.i18n.tr
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,7 +66,7 @@ fun OnboardingScreen(
                 fontWeight = FontWeight.ExtraBold,
             )
             Text(
-                text = "离线 · 安心",
+                text = tr("离线 · 安心"),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -100,7 +102,7 @@ fun OnboardingScreen(
                     .padding(bottom = 18.dp),
             ) {
                 Text(
-                    text = "该起床了",
+                    text = tr("该起床了"),
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
                     color = WakeMoveNight,
                     style = MaterialTheme.typography.labelLarge,
@@ -110,7 +112,7 @@ fun OnboardingScreen(
         }
 
         Text(
-            text = "别只是醒来。\n要真正起床。",
+            text = tr("别只是醒来。\n要真正起床。"),
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontSize = 36.sp,
                 lineHeight = 43.sp,
@@ -118,7 +120,7 @@ fun OnboardingScreen(
             color = MaterialTheme.colorScheme.onBackground,
         )
         Text(
-            text = "闹钟响起后，用动作或语音完成挑战。没有顺手一划，只有清醒出发。",
+            text = tr("闹钟响起后，用动作或语音完成挑战。没有顺手一划，只有清醒出发。"),
             modifier = Modifier.padding(top = 12.dp),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -130,13 +132,13 @@ fun OnboardingScreen(
                 .padding(top = 18.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OnboardingFeature(Icons.Rounded.Alarm, "准时响铃", Modifier.weight(1f))
+            OnboardingFeature(Icons.Rounded.Alarm, tr("准时响铃"), Modifier.weight(1f))
             OnboardingFeature(
                 Icons.AutoMirrored.Rounded.DirectionsRun,
-                "动作挑战",
+                tr("动作挑战"),
                 Modifier.weight(1f),
             )
-            OnboardingFeature(Icons.Rounded.MicNone, "离线语音", Modifier.weight(1f))
+            OnboardingFeature(Icons.Rounded.MicNone, tr("离线语音"), Modifier.weight(1f))
         }
 
         Button(
@@ -152,13 +154,13 @@ fun OnboardingScreen(
             shape = MaterialTheme.shapes.large,
         ) {
             Text(
-                text = "继续并设置权限",
+                text = tr("继续并设置权限"),
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.2.sp,
             )
         }
         Text(
-            text = "相机与麦克风内容只在本机处理",
+            text = tr("相机与麦克风内容只在本机处理"),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 10.dp),

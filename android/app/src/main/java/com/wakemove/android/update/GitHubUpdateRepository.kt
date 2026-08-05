@@ -1,5 +1,8 @@
 package com.wakemove.android.update
 
+import com.wakemove.android.i18n.tr
+import com.wakemove.android.i18n.WakeMoveLocale
+
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -20,13 +23,13 @@ class GitHubUpdateRepository : UpdateRepository {
             connection.setRequestProperty("User-Agent", "WakeMove-Android-Updater")
             val responseCode = connection.responseCode
             if (responseCode !in 200..299) {
-                throw UpdateCheckException("版本服务暂时不可用（$responseCode）")
+                throw UpdateCheckException(tr("版本服务暂时不可用（$responseCode）"))
             }
             parseRelease(connection.inputStream.bufferedReader().use { it.readText() })
         } catch (error: UpdateCheckException) {
             throw error
         } catch (_: Exception) {
-            throw UpdateCheckException("无法连接版本服务，请检查网络后重试")
+            throw UpdateCheckException(tr("无法连接版本服务，请检查网络后重试"))
         } finally {
             connection.disconnect()
         }
@@ -43,7 +46,7 @@ class GitHubUpdateRepository : UpdateRepository {
         if (versionCode < 1 || versionName.isBlank() || releaseUrl.isBlank() ||
             downloadUrl.isBlank() || !sha256.matches(Regex("[a-f0-9]{64}"))
         ) {
-            throw UpdateCheckException("最新版本信息不完整")
+            throw UpdateCheckException(tr("最新版本信息不完整"))
         }
         requireTrustedGitHubUrl(releaseUrl)
         requireTrustedGitHubUrl(downloadUrl)
@@ -53,9 +56,12 @@ class GitHubUpdateRepository : UpdateRepository {
             versionName = versionName,
             downloadUrl = downloadUrl,
             releaseUrl = releaseUrl,
-            releaseNotes = release.optString("releaseNotes").trim().ifBlank {
-                "可靠性与体验改进。"
-            },
+            releaseNotes = if (WakeMoveLocale.isEnglish()) {
+                release.optString("releaseNotesEn").trim()
+                    .ifBlank { release.optString("releaseNotes").trim() }
+            } else {
+                release.optString("releaseNotes").trim()
+            }.ifBlank { tr("可靠性与体验改进。") },
             sha256 = sha256,
             fallbackDownloadUrl = fallbackDownloadUrl,
         )
@@ -64,7 +70,7 @@ class GitHubUpdateRepository : UpdateRepository {
     private fun requireTrustedGitHubUrl(value: String) {
         val uri = runCatching { URI(value) }.getOrNull()
         if (uri?.scheme != "https" || uri.host?.lowercase() !in TRUSTED_HOSTS) {
-            throw UpdateCheckException("版本下载地址未通过安全校验")
+            throw UpdateCheckException(tr("版本下载地址未通过安全校验"))
         }
     }
 

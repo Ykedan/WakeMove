@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.navigation
 
+import com.wakemove.android.i18n.tr
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -84,7 +86,7 @@ interface AlarmUiDependencies {
 
 private enum class MainDestination(
     val route: String,
-    val label: String,
+    val labelKey: String,
     val icon: ImageVector,
 ) {
     ALARMS(ROUTE_ALARMS, "闹钟", Icons.Outlined.Alarm),
@@ -319,19 +321,20 @@ private fun MainShell(
                     tonalElevation = 0.dp,
                 ) {
                     MainDestination.entries.forEach { item ->
+                        val itemLabel = tr(item.labelKey)
                         NavigationBarItem(
                             modifier = Modifier.semantics {
-                                contentDescription = item.label
+                                contentDescription = itemLabel
                             },
                             selected = destination == item,
                             onClick = { onDestinationSelected(item) },
                             icon = {
                                 Icon(
                                     imageVector = item.icon,
-                                    contentDescription = item.label,
+                                    contentDescription = itemLabel,
                                 )
                             },
-                            label = { Text(item.label) },
+                            label = { Text(itemLabel) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
                                 selectedTextColor = MaterialTheme.colorScheme.primary,

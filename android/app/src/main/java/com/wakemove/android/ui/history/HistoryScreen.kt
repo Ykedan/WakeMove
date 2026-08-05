@@ -1,5 +1,7 @@
 package com.wakemove.android.ui.history
 
+import com.wakemove.android.i18n.tr
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -61,13 +63,13 @@ fun HistoryScreen(
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Text(
-                        text = "历史记录",
+                        text = tr("历史记录"),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                     )
                 }
                 if (events.isNotEmpty()) {
-                    TextButton(onClick = onClearHistory) { Text("清除历史") }
+                    TextButton(onClick = onClearHistory) { Text(tr("清除历史")) }
                 }
             }
         }
@@ -83,11 +85,11 @@ fun HistoryScreen(
                 ) {
                     WakeOrbitMark(size = 148.dp)
                     Text(
-                        text = "还没有响铃记录",
+                        text = tr("还没有响铃记录"),
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        text = "完成第一次起床挑战后，这里会留下记录",
+                        text = tr("完成第一次起床挑战后，这里会留下记录"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -137,7 +139,7 @@ fun HistoryScreen(
                             }
                         }
                         Text(
-                            text = "${event.challengeType.label()} · 贪睡 ${event.snoozeCount} 次",
+                            text = tr("${event.challengeType.label()} · 贪睡 ${event.snoozeCount} 次"),
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.labelLarge,
                         )
@@ -149,17 +151,17 @@ fun HistoryScreen(
                             verticalArrangement = Arrangement.spacedBy(5.dp),
                         ) {
                             Text(
-                                "实际响铃：${
+                                tr("实际响铃：${
                                     event.startedAt?.localFormat(zoneId, includeSeconds = true)
-                                        ?: "未开始"
-                                }",
+                                        ?: tr("未开始")
+                                }"),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Text(
-                                "完成时间：${
+                                tr("完成时间：${
                                     event.finishedAt?.localFormat(zoneId, includeSeconds = true)
-                                        ?: "处理中"
-                                }",
+                                        ?: tr("处理中")
+                                }"),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
@@ -176,14 +178,14 @@ private fun java.time.Instant.localFormat(zoneId: ZoneId, includeSeconds: Boolea
     )
 
 private fun AlarmEventResult.label(): String = when (this) {
-    AlarmEventResult.COMPLETED -> "挑战完成"
-    AlarmEventResult.BYPASSED -> "紧急停止"
-    AlarmEventResult.MISSED -> "已错过"
+    AlarmEventResult.COMPLETED -> tr("挑战完成")
+    AlarmEventResult.BYPASSED -> tr("紧急停止")
+    AlarmEventResult.MISSED -> tr("已错过")
 }
 
 private fun ChallengeType.label(): String = when (this) {
-    ChallengeType.SQUAT -> "深蹲"
-    ChallengeType.JUMPING_JACK -> "开合跳"
-    ChallengeType.HANDS_UP -> "双手举起"
-    ChallengeType.VOICE_PHRASE -> "语音短句"
+    ChallengeType.SQUAT -> tr("深蹲")
+    ChallengeType.JUMPING_JACK -> tr("开合跳")
+    ChallengeType.HANDS_UP -> tr("双手举起")
+    ChallengeType.VOICE_PHRASE -> tr("语音短句")
 }
