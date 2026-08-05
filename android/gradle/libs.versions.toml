@@ -10,7 +10,7 @@ room = "2.8.4"
 ksp = "2.3.10"
 robolectric = "4.16.1"
 cameraX = "1.5.3"
-mediaPipeTasksVision = "0.10.35"
+mediaPipeTasksVision = "1.0.0"
 workManager = "2.11.2"
 
 [libraries]
