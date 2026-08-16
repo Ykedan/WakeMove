@@ -53,7 +53,7 @@ jobs:
           echo "${EXPECTED_SHA}  ${APK_PATH}" | sha256sum --check --strict
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload website
         uses: actions/upload-pages-artifact@v3
